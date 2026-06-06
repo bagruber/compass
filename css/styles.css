@@ -1,0 +1,435 @@
+:root {
+  --bg: #f4f1ea;
+  --card: #ffffff;
+  --ink: #1c1c1c;
+  --muted: #6b6b6b;
+  --accent: #0b6e4f;
+  --accent-soft: #e3f0eb;
+  --radius: 18px;
+  font-size: 18px;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  font-family: 'Vazirmatn', 'Segoe UI', Tahoma, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+}
+
+.screen {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 1rem 1rem 2.5rem;
+}
+
+/* ---- Home ---- */
+.home-header {
+  text-align: center;
+  margin: 0.5rem 0 1.25rem;
+}
+.kicker {
+  margin: 0;
+  font-weight: 700;
+  color: var(--accent);
+}
+.lang {
+  margin: 0.15rem 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.mic {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 1.4rem;
+  margin-bottom: 1.5rem;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(11, 110, 79, 0.3);
+}
+.mic:active {
+  transform: scale(0.98);
+}
+.mic-glyph {
+  font-size: 2.6rem;
+}
+.mic-unsupported {
+  opacity: 0.55;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.9rem;
+}
+.tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 1.5rem 0.75rem;
+  background: var(--card);
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: var(--ink);
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  min-height: 132px;
+}
+/* Time-sensitive tile: amber ring (colour) + ⏰ badge (icon) — both, never
+   colour alone, so the meaning survives colour-blindness and cross-cultural
+   colour differences. */
+.tile.is-urgent {
+  box-shadow: 0 0 0 2px #e08a2b, 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+.tile-urgent {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 1.25rem;
+  line-height: 1;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
+}
+.tile:active {
+  background: var(--accent-soft);
+}
+.tile-icon {
+  font-size: 2.8rem;
+  line-height: 1;
+}
+.tile-label {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+/* ---- Topic ---- */
+.topic-bar {
+  margin-bottom: 0.5rem;
+}
+.btn-back {
+  border: none;
+  background: var(--card);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  font-size: 1.4rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+.topic-header {
+  text-align: center;
+  margin-bottom: 1.25rem;
+}
+.topic-icon {
+  font-size: 3.4rem;
+}
+.topic-header h2 {
+  margin: 0.3rem 0 0.15rem;
+}
+.de-sub {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* ---- Urgency banner ---- */
+.urgency {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: #fff4e2;
+  border-right: 4px solid #e08a2b; /* amber accent on the start (right) edge in RTL */
+  border-radius: var(--radius);
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+}
+.urgency-icon {
+  font-size: 1.8rem;
+  flex-shrink: 0;
+}
+.urgency-text {
+  min-width: 0;
+}
+.urgency-fa {
+  margin: 0;
+  font-weight: 700;
+  color: #8a4b0a;
+}
+.urgency-de {
+  margin: 0.1rem 0 0;
+  font-size: 0.85rem;
+  color: #a9692f;
+}
+
+/* ---- Authority / endpoint card ---- */
+.authority {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 1rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border-right: 4px solid var(--accent); /* accent on the start (right) edge in RTL */
+}
+.authority-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+.authority-icon {
+  font-size: 2.2rem;
+  flex-shrink: 0;
+}
+.authority-names {
+  min-width: 0;
+}
+.authority-fa {
+  margin: 0;
+  font-weight: 700;
+}
+.authority-de {
+  margin: 0.1rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.authority-actions {
+  display: flex;
+  gap: 0.6rem;
+}
+.authority-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  text-decoration: none;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 1rem;
+  padding: 0.85rem;
+  border-radius: 12px;
+}
+.authority-btn:active {
+  background: #d4e8e0;
+}
+.authority-btn-icon {
+  font-size: 1.2rem;
+}
+
+.btn-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: none;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 50%;
+  width: 52px;
+  height: 52px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.btn-play.playing {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-play-full {
+  width: 100%;
+  border-radius: var(--radius);
+  height: 56px;
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-bottom: 1.25rem;
+}
+.play-icon {
+  /* flip the triangle for RTL so it points into the text */
+  display: inline-block;
+  transform: scaleX(-1);
+}
+/* While the MP3 buffers (matters on patchy data): turn the ▶ into a spinner
+   in place, so a tap never looks dead between request and playback. */
+.btn-play.loading .play-icon {
+  color: transparent;
+  width: 22px;
+  height: 22px;
+  border: 3px solid rgba(11, 110, 79, 0.25);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.step {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 0.85rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+.step-num {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.step-body {
+  flex: 1;
+  min-width: 0; /* allow shrink below content size so long German words wrap */
+  overflow-wrap: break-word;
+  cursor: pointer;
+}
+.step-fa {
+  margin: 0;
+  font-weight: 600;
+}
+.step-de {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  border-top: 1px dashed #ddd;
+  padding-top: 0.4rem;
+}
+
+/* ---- Voice overlay ---- */
+/* author display:flex below would override the UA [hidden] rule — restore it */
+.voice-overlay[hidden] {
+  display: none;
+}
+.voice-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 110, 79, 0.97);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  padding: 2rem;
+  text-align: center;
+  z-index: 100;
+}
+.voice-close {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  border: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+/* The overlay shows exactly one glyph, chosen by [data-state]:
+   listening (pulsing mic) → processing (spinner) → found (✓) / error (؟). */
+.voice-stage {
+  position: relative;
+  width: 110px;
+  height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.voice-glyph {
+  position: absolute;
+  font-size: 4.5rem;
+  line-height: 1;
+  display: none;
+}
+.voice-overlay[data-state='listening'] .voice-glyph-mic {
+  display: block;
+  animation: pulse 1.3s ease-in-out infinite;
+}
+.voice-overlay[data-state='processing'] .voice-glyph-spinner {
+  display: block;
+}
+.voice-overlay[data-state='found'] .voice-glyph-check {
+  display: block;
+}
+.voice-overlay[data-state='error'] .voice-glyph-q,
+.voice-overlay[data-state='unsupported'] .voice-glyph-q {
+  display: block;
+}
+.voice-glyph-spinner {
+  width: 72px;
+  height: 72px;
+  border: 7px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.18); opacity: 0.7; }
+}
+
+.voice-retry {
+  margin-top: 0.25rem;
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+  border: none;
+  background: #fff;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 1.05rem;
+  padding: 0.85rem 1.5rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.voice-overlay[data-state='error'] .voice-retry {
+  display: inline-flex;
+}
+.voice-status {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+}
+.voice-transcript {
+  font-size: 1.05rem;
+  opacity: 0.85;
+  margin: 0;
+  min-height: 1.4em;
+}
