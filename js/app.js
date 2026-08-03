@@ -50,6 +50,11 @@ async function start(code) {
   wireVoice();
   window.addEventListener('hashchange', route);
   route();
+
+  // Dynamic import, so the inspector is never fetched on a normal visit.
+  if (new URLSearchParams(window.location.search).has('debug')) {
+    import('./debug.js').then((debug) => debug.initDebug(topics));
+  }
 }
 
 function applyStrings(info) {

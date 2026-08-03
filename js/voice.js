@@ -100,6 +100,12 @@ async function handleTranscript(transcript) {
   setState('processing', t('searching'));
   const result = await route(transcript, topicList);
 
+  // Announced rather than handed to a listener, so the debug panel can observe
+  // routing without anything in the shipping path knowing it exists.
+  document.dispatchEvent(
+    new CustomEvent('compass:route', { detail: { transcript, result, source: 'voice' } })
+  );
+
   if (!result.slug) {
     setState('error', result.clarify || t('no_match'));
     speak(result.clarify || t('no_match'));

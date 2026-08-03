@@ -30,11 +30,8 @@ function normalize(text, equivalents) {
 }
 
 function scoreTopic(haystack, topic, equivalents) {
-  let hits = 0;
-  for (const kw of topic.keywords) {
-    if (haystack.includes(normalize(kw, equivalents))) hits += 1;
-  }
-  return hits;
+  const hits = topic.keywords.filter((kw) => haystack.includes(normalize(kw, equivalents)));
+  return { score: hits.length, hits };
 }
 
 function routeMock(transcript, topics) {
@@ -42,25 +39,45 @@ function routeMock(transcript, topics) {
   const hay = normalize(transcript, equivalents);
 
   const scored = topics
-    .map((topic) => ({ topic, score: scoreTopic(hay, topic, equivalents) }))
+    .map((topic) => ({ topic, ...scoreTopic(hay, topic, equivalents) }))
     .sort((a, b) => b.score - a.score);
 
   const [best, second] = scored;
 
+  // Every branch carries a trace of how it decided. Cheap to build (the scores
+  // already exist) and the only way to tell a wrong keyword list from a wrong
+  // transcript when a test phrase routes somewhere surprising.
+  const trace = {
+    mode: 'mock',
+    normalized: hay,
+    scores: scored.map(({ topic, score, hits }) => ({
+      id: topic.id,
+      name: topic.name,
+      score,
+      hits,
+    })),
+  };
+
   if (!best || best.score === 0) {
-    return { slug: null, confidence: 0, clarify: t('no_match') };
+    return { slug: null, confidence: 0, clarify: t('no_match'), trace: { ...trace, reason: 'no keyword matched' } };
   }
 
   // Top two tied on a positive score -> ask which one rather than guessing.
   if (second && second.score === best.score) {
     const options = [best.topic.name, second.topic.name].join(t('clarify_or'));
-    return { slug: null, confidence: 0.5, clarify: t('clarify_between', { options }) };
+    return {
+      slug: null,
+      confidence: 0.5,
+      clarify: t('clarify_between', { options }),
+      trace: { ...trace, reason: `tie: ${best.topic.id} vs ${second.topic.id}` },
+    };
   }
 
   return {
     slug: best.topic.id,
     confidence: Math.min(1, 0.5 + best.score * 0.25),
     clarify: null,
+    trace: { ...trace, reason: `${best.topic.id} led with ${best.score}` },
   };
 }
 
@@ -76,7 +93,9 @@ async function routeProxy(transcript, topics) {
       }),
     });
     if (!res.ok) throw new Error(`proxy ${res.status}`);
-    return await res.json();
+    const result = await res.json();
+    // The proxy decides server-side, so there is no local scoring to show.
+    return { ...result, trace: { mode: 'proxy', reason: 'decided by the model', scores: [] } };
   } catch (err) {
     console.warn('[router] proxy failed, falling back to mock:', err);
     return routeMock(transcript, topics);
