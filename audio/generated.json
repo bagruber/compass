@@ -1,0 +1,82 @@
+{
+  "audio/fa/aufenthalt-asyl/full.mp3": {
+    "hash": "a8c13e92d7a45cde",
+    "source": "tts"
+  },
+  "audio/fa/aufenthalt-asyl/step-1.mp3": {
+    "hash": "1f2cd290906dd28e",
+    "source": "tts"
+  },
+  "audio/fa/aufenthalt-asyl/step-2.mp3": {
+    "hash": "81e3c1c48c9824ac",
+    "source": "tts"
+  },
+  "audio/fa/deutschkurs/full.mp3": {
+    "hash": "59b7d325b13374f6",
+    "source": "tts"
+  },
+  "audio/fa/deutschkurs/step-1.mp3": {
+    "hash": "9da6aa98c6fa26af",
+    "source": "tts"
+  },
+  "audio/fa/gesundheit/full.mp3": {
+    "hash": "34b2e3b288aabb51",
+    "source": "tts"
+  },
+  "audio/fa/gesundheit/step-1.mp3": {
+    "hash": "e275382110269f28",
+    "source": "tts"
+  },
+  "audio/fa/jobcenter/full.mp3": {
+    "hash": "63fba2b82315772b",
+    "source": "tts"
+  },
+  "audio/fa/jobcenter/step-1.mp3": {
+    "hash": "5f7676e721ce523d",
+    "source": "tts"
+  },
+  "audio/fa/jobcenter/step-2.mp3": {
+    "hash": "860b55f7c3b095ec",
+    "source": "tts"
+  },
+  "audio/fa/jobcenter/step-3.mp3": {
+    "hash": "64691d4b8387dcdf",
+    "source": "tts"
+  },
+  "audio/fa/jobcenter/step-4.mp3": {
+    "hash": "e273bc4960da2981",
+    "source": "tts"
+  },
+  "audio/fa/kita-schule/full.mp3": {
+    "hash": "c44f22557355cd0d",
+    "source": "tts"
+  },
+  "audio/fa/kita-schule/step-1.mp3": {
+    "hash": "8c77beb5cb92d2ad",
+    "source": "tts"
+  },
+  "audio/fa/wohnsitz-anmelden/full.mp3": {
+    "hash": "ee6b2936d02a4d5d",
+    "source": "tts"
+  },
+  "audio/fa/wohnsitz-anmelden/step-1.mp3": {
+    "hash": "0a47c4cc8b987428",
+    "source": "tts"
+  },
+  "audio/fa/wohnsitz-anmelden/step-2.mp3": {
+    "hash": "7b1f4aa41965d7cd",
+    "source": "tts"
+  },
+  "audio/fa/wohnsitz-anmelden/step-3.mp3": {
+    "hash": "4a29e329023bd822",
+    "source": "tts"
+  },
+  "audio/fa/wohnsitz-anmelden/step-4.mp3": {
+    "hash": "6fdc24e1c3655a66",
+    "source": "tts"
+  },
+  "audio/fa/wohnsitz-anmelden/step-5.mp3": {
+    "hash": "7ea6256a6a382cc8",
+    "source": "tts"
+  }
+}

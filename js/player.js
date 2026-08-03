@@ -1,157 +1,269 @@
-// Renders a topic into the player screen: one "play all" control plus a list of
-// steps. Each step is icon-first and audio-first (big play button); the German
-// text is secondary and hidden behind a tap, per the illiteracy-first brief.
+// Topic screen: one "play all" control, the destination, and the short list of
+// things to know. Audio-first; German text is secondary and behind a toggle.
+//
+// Everything user-facing is built with createElement + textContent rather than
+// innerHTML: content comes from JSON that a caseworker will eventually edit,
+// and an apostrophe in a translation must never be able to break the page.
 
-let audio = null; // single shared <audio>; only one clip plays at a time
+import { t } from './content.js';
 
-function clearButtonStates() {
-  document
-    .querySelectorAll('.btn-play')
-    .forEach((b) => b.classList.remove('playing', 'loading'));
+let audio = null; // one shared element; only one clip plays at a time
+let activeButton = null;
+
+function setButtonState(button, state) {
+  button.classList.toggle('is-loading', state === 'loading');
+  button.classList.toggle('is-playing', state === 'playing');
+  button.classList.toggle('is-error', state === 'error');
+  button.setAttribute('aria-pressed', String(state === 'playing'));
+}
+
+function reset(button) {
+  if (button) setButtonState(button, 'idle');
 }
 
 function play(src, button) {
   if (!audio) audio = new Audio();
 
-  // Tapping the active button again -> stop (also cancels an in-flight load).
-  if (audio.dataset.btn === button.dataset.key && !audio.paused) {
+  // Tapping the active button again stops it (and cancels an in-flight load).
+  if (activeButton === button && !audio.paused) {
     audio.pause();
-    button.classList.remove('playing', 'loading');
+    reset(button);
+    activeButton = null;
     return;
   }
 
-  clearButtonStates();
+  reset(activeButton);
+  activeButton = button;
   audio.src = src;
-  audio.dataset.btn = button.dataset.key;
 
-  // Spinner from tap until audio actually starts — on patchy data the gap
-  // between request and playback is real, and a tap must never look dead.
-  button.classList.add('loading');
-  audio.onwaiting = () => button.classList.add('loading');
-  audio.onplaying = () => {
-    button.classList.remove('loading');
-    button.classList.add('playing');
+  // Spinner from tap until playback actually starts. On patchy data the gap is
+  // real, and a tap must never look dead.
+  setButtonState(button, 'loading');
+  audio.onwaiting = () => setButtonState(button, 'loading');
+  audio.onplaying = () => setButtonState(button, 'playing');
+  audio.onended = () => {
+    reset(button);
+    activeButton = null;
   };
-  audio.onended = () => button.classList.remove('playing', 'loading');
   audio.onerror = () => {
-    button.classList.remove('playing', 'loading');
-    console.warn('[player] audio failed to load:', src);
+    setButtonState(button, 'error');
+    activeButton = null;
   };
-  audio.play().catch((err) => {
-    button.classList.remove('playing', 'loading');
-    console.warn('[player] audio failed:', err);
+  audio.play().catch(() => {
+    setButtonState(button, 'error');
+    activeButton = null;
   });
 }
 
 export function stopAudio() {
   if (audio) audio.pause();
-  clearButtonStates();
+  reset(activeButton);
+  activeButton = null;
 }
 
-// Time-sensitive banner. Icon + amber accent carry the "act fast" meaning
-// (not colour alone); the deadline text serves readers. Optional per topic.
-function urgencyBanner(topic) {
-  const b = document.createElement('div');
-  b.className = 'urgency';
-  b.innerHTML = `<span class="urgency-icon" aria-hidden="true">⏰</span>
-    <div class="urgency-text">
-      <p class="urgency-fa">${topic.deadline_fa || 'زمان‌حساس'}</p>
-      <p class="urgency-de">${topic.deadline_de || ''}</p>
-    </div>`;
-  return b;
+function playButton(src, label, extraClass) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = extraClass ? `btn-play ${extraClass}` : 'btn-play';
+  button.setAttribute('aria-label', label);
+  button.setAttribute('aria-pressed', 'false');
+
+  const icon = document.createElement('span');
+  icon.className = 'play-icon';
+  icon.setAttribute('aria-hidden', 'true');
+  button.appendChild(icon);
+
+  if (extraClass) {
+    const text = document.createElement('span');
+    text.textContent = label;
+    button.appendChild(text);
+  }
+
+  button.addEventListener('click', () => play(src, button));
+  return button;
 }
 
-// "Where to go" card: a physical office with reading-free actions —
-// tap the pin for directions, tap the phone to call. Optional per topic.
-function authorityCard(auth) {
-  const card = document.createElement('div');
-  card.className = 'authority';
+// Deadline banner. Icon + colour together carry "act fast" — never colour
+// alone, so it survives colour-blindness and cross-cultural colour meaning.
+function deadlineBanner(topic) {
+  const banner = document.createElement('div');
+  banner.className = 'deadline';
+
+  const icon = document.createElement('span');
+  icon.className = 'deadline-icon';
+  icon.setAttribute('aria-hidden', 'true');
+  icon.textContent = '⏰';
+
+  const text = document.createElement('div');
+  const primary = document.createElement('p');
+  primary.className = 'deadline-text';
+  primary.textContent = topic.deadline || t('urgent');
+  text.appendChild(primary);
+
+  if (topic.deadlineDe) {
+    const german = document.createElement('p');
+    german.className = 'deadline-de';
+    german.lang = 'de';
+    german.dir = 'ltr';
+    german.textContent = topic.deadlineDe;
+    text.appendChild(german);
+  }
+
+  banner.append(icon, text);
+  return banner;
+}
+
+// Where to go: a physical office with reading-free actions — tap the pin for
+// directions, tap the phone to call.
+function destination(auth) {
+  const card = document.createElement('section');
+  card.className = 'destination';
 
   const head = document.createElement('div');
-  head.className = 'authority-head';
-  head.innerHTML = `<span class="authority-icon">${auth.icon}</span>
-    <div class="authority-names">
-      <p class="authority-fa">${auth.fa}</p>
-      <p class="authority-de">${auth.de}</p>
-    </div>`;
+  head.className = 'destination-head';
+
+  const icon = document.createElement('span');
+  icon.className = 'destination-icon';
+  icon.setAttribute('aria-hidden', 'true');
+  icon.textContent = auth.icon;
+
+  const names = document.createElement('div');
+  const name = document.createElement('p');
+  name.className = 'destination-name';
+  name.textContent = auth.name;
+  const german = document.createElement('p');
+  german.className = 'destination-de';
+  german.lang = 'de';
+  german.dir = 'ltr';
+  german.textContent = auth.de;
+  names.append(name, german);
+
+  head.append(icon, names);
 
   const actions = document.createElement('div');
-  actions.className = 'authority-actions';
+  actions.className = 'destination-actions';
 
   const map = document.createElement('a');
-  map.className = 'authority-btn';
+  map.className = 'action';
   map.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(auth.maps_query)}`;
   map.target = '_blank';
   map.rel = 'noopener';
-  map.innerHTML = '<span class="authority-btn-icon">📍</span><span>مسیر</span>';
+  map.append(glyph('📍'), label(t('directions')));
   actions.appendChild(map);
 
   if (auth.phone) {
     const call = document.createElement('a');
-    call.className = 'authority-btn';
+    call.className = 'action';
     call.href = `tel:${auth.phone}`;
-    call.innerHTML = '<span class="authority-btn-icon">📞</span><span>تماس</span>';
+    call.append(glyph('📞'), label(t('call')));
     actions.appendChild(call);
   }
 
   card.append(head, actions);
+
+  // The data is flagged unverified; the interface says so rather than
+  // presenting a guessed phone number with the confidence of a checked one.
+  if (auth.verified === false) {
+    const warning = document.createElement('p');
+    warning.className = 'destination-unverified';
+    warning.textContent = t('unverified');
+    card.appendChild(warning);
+  }
+
   return card;
 }
 
-export function renderTopic(topic, authorities, container) {
-  stopAudio();
-  container.innerHTML = '';
+function glyph(char) {
+  const span = document.createElement('span');
+  span.className = 'action-icon';
+  span.setAttribute('aria-hidden', 'true');
+  span.textContent = char;
+  return span;
+}
 
-  const header = document.createElement('div');
+function label(text) {
+  const span = document.createElement('span');
+  span.textContent = text;
+  return span;
+}
+
+function stepItem(topic, step) {
+  const item = document.createElement('li');
+  item.className = 'step';
+
+  const number = document.createElement('span');
+  number.className = 'step-num';
+  number.setAttribute('aria-hidden', 'true');
+  // Localised numerals: the step number renders in the reader's own digits.
+  number.textContent = step.id.toLocaleString(document.documentElement.lang);
+
+  const body = document.createElement('div');
+  body.className = 'step-body';
+
+  const text = document.createElement('p');
+  text.className = 'step-text';
+  text.textContent = step.text;
+  body.appendChild(text);
+
+  // The German term is what you point at when you reach the counter, so it is
+  // a real disclosure control: focusable, labelled, and state-announcing.
+  const german = document.createElement('p');
+  german.className = 'step-de';
+  german.lang = 'de';
+  german.dir = 'ltr';
+  german.textContent = step.de;
+  german.hidden = true;
+  german.id = `de-${topic.id}-${step.id}`;
+
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'step-toggle';
+  toggle.textContent = t('show_german');
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.setAttribute('aria-controls', german.id);
+  toggle.addEventListener('click', () => {
+    const open = german.hidden;
+    german.hidden = !open;
+    toggle.setAttribute('aria-expanded', String(open));
+  });
+
+  body.append(toggle, german);
+
+  item.append(number, body, playButton(step.audio, t('play')));
+  return item;
+}
+
+export function renderTopic(topic, container) {
+  stopAudio();
+  container.textContent = '';
+
+  const header = document.createElement('header');
   header.className = 'topic-header';
-  header.innerHTML = `<span class="topic-icon">${topic.icon}</span>
-    <h2>${topic.fa}</h2>
-    <p class="de-sub">${topic.de}</p>`;
+
+  const icon = document.createElement('span');
+  icon.className = 'topic-icon';
+  icon.setAttribute('aria-hidden', 'true');
+  icon.textContent = topic.icon;
+
+  const heading = document.createElement('h1');
+  heading.textContent = topic.name;
+
+  const german = document.createElement('p');
+  german.className = 'topic-de';
+  german.lang = 'de';
+  german.dir = 'ltr';
+  german.textContent = topic.de;
+
+  header.append(icon, heading, german);
   container.appendChild(header);
 
-  if (topic.urgency === 'high') container.appendChild(urgencyBanner(topic));
+  container.appendChild(playButton(topic.audioFull, t('play_all'), 'btn-play-full'));
 
-  const auth = topic.authority && authorities[topic.authority];
-  if (auth) container.appendChild(authorityCard(auth));
-
-  if (topic.audio_full) {
-    const full = document.createElement('button');
-    full.className = 'btn-play btn-play-full';
-    full.dataset.key = `${topic.id}-full`;
-    full.innerHTML = '<span class="play-icon">▶</span><span>شنیدن کامل</span>';
-    full.addEventListener('click', () => play(topic.audio_full, full));
-    container.appendChild(full);
-  }
+  if (topic.urgency === 'high') container.appendChild(deadlineBanner(topic));
+  if (topic.authority) container.appendChild(destination(topic.authority));
 
   const list = document.createElement('ol');
   list.className = 'steps';
-
-  topic.steps.forEach((step) => {
-    const li = document.createElement('li');
-    li.className = 'step';
-
-    const playBtn = document.createElement('button');
-    playBtn.className = 'btn-play';
-    playBtn.dataset.key = `${topic.id}-${step.id}`;
-    playBtn.setAttribute('aria-label', 'پخش صدا');
-    playBtn.innerHTML = '<span class="play-icon">▶</span>';
-    playBtn.addEventListener('click', () => play(step.audio, playBtn));
-
-    const num = document.createElement('span');
-    num.className = 'step-num';
-    num.textContent = step.id;
-
-    const body = document.createElement('div');
-    body.className = 'step-body';
-    body.innerHTML = `<p class="step-fa">${step.fa}</p>
-      <p class="step-de" hidden>${step.de}</p>`;
-    body.addEventListener('click', () => {
-      body.querySelector('.step-de').hidden = !body.querySelector('.step-de').hidden;
-    });
-
-    li.append(num, body, playBtn);
-    list.appendChild(li);
-  });
-
+  topic.steps.forEach((step) => list.appendChild(stepItem(topic, step)));
   container.appendChild(list);
 }

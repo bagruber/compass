@@ -1,68 +1,67 @@
-// Voice -> category routing. One interface, two backends.
+// Voice -> topic routing. One interface, two backends.
 //
 //   route(transcript, topics) -> { slug, confidence, clarify }
-//     slug:       matched topic id, or null when unresolved
-//     confidence: 0..1 (rough; mock backend)
-//     clarify:    Farsi question to speak back, or null
 //
-// MODE 'mock'  : client-side keyword matcher. No secrets, works offline.
-// MODE 'proxy' : POST to a serverless function that holds the Anthropic key
-//                and asks Claude Haiku to pick a slug. Same return shape, so
-//                swapping is a one-line config change. Stub lives in proxy/.
+// mock  : client-side keyword matcher. No secrets, works offline. Default.
+// proxy : POST to a serverless endpoint holding the API key. Same shape, so
+//         switching is a config change in data/structure.json, not a code edit.
+//
+// Any proxy failure falls back to mock. Routing must never dead-end.
 
-export const ROUTER_MODE = 'mock'; // 'mock' | 'proxy'
-export const PROXY_ENDPOINT = '/api/route';
+import { meta, t } from './content.js';
 
-const CLARIFY_NONE = 'متوجه نشدم. لطفاً دوباره بگویید یا روی یکی از دکمه‌ها بزنید.';
+const PROXY_ENDPOINT = 'api/route.php';
 
-function clarifyBetween(topics) {
-  const names = topics.map((t) => t.fa).join(' یا ');
-  return `منظورتان ${names} است؟`;
-}
+// Combining marks: Latin diacritics, Arabic harakat, superscript alef.
+// Written out rather than \p{M} so the module still parses on the old Chrome
+// builds this audience's phones actually run.
+const MARKS = /[̀-ͯؐ-ًؚ-ٰٟۖ-ۭ]/g;
 
-// Normalize Farsi/Arabic variants so "ی/ي" and "ک/ك" match, drop diacritics.
-function normalize(text) {
-  return (text || '')
+function normalize(text, equivalents) {
+  let s = (text || '')
     .toLowerCase()
-    .replace(/ي/g, 'ی') // Arabic yeh -> Farsi yeh
-    .replace(/ك/g, 'ک') // Arabic kaf -> Farsi keheh
-    .replace(/[ً-ْ]/g, '') // harakat/diacritics
-    .replace(/‌/g, ' ') // ZWNJ -> space
+    .normalize('NFKD')
+    .replace(MARKS, '')
+    .replace(/‌/g, ' ') // ZWNJ reads as a word break for matching
+    .replace(/\s+/g, ' ')
     .trim();
+  for (const [from, to] of equivalents) s = s.split(from).join(to);
+  return s;
 }
 
-function scoreTopic(transcript, topic) {
-  const hay = normalize(transcript);
+function scoreTopic(haystack, topic, equivalents) {
   let hits = 0;
-  for (const kw of topic.keywords || []) {
-    if (hay.includes(normalize(kw))) hits += 1;
+  for (const kw of topic.keywords) {
+    if (haystack.includes(normalize(kw, equivalents))) hits += 1;
   }
   return hits;
 }
 
 function routeMock(transcript, topics) {
+  const { equivalents } = meta();
+  const hay = normalize(transcript, equivalents);
+
   const scored = topics
-    .map((t) => ({ topic: t, score: scoreTopic(transcript, t) }))
+    .map((topic) => ({ topic, score: scoreTopic(hay, topic, equivalents) }))
     .sort((a, b) => b.score - a.score);
 
-  const best = scored[0];
-  const second = scored[1];
+  const [best, second] = scored;
 
   if (!best || best.score === 0) {
-    return { slug: null, confidence: 0, clarify: CLARIFY_NONE };
+    return { slug: null, confidence: 0, clarify: t('no_match') };
   }
 
-  // Ambiguous: top two tied on a positive score -> ask which one.
+  // Top two tied on a positive score -> ask which one rather than guessing.
   if (second && second.score === best.score) {
-    return {
-      slug: null,
-      confidence: 0.5,
-      clarify: clarifyBetween([best.topic, second.topic]),
-    };
+    const options = [best.topic.name, second.topic.name].join(t('clarify_or'));
+    return { slug: null, confidence: 0.5, clarify: t('clarify_between', { options }) };
   }
 
-  const confidence = Math.min(1, 0.5 + best.score * 0.25);
-  return { slug: best.topic.id, confidence, clarify: null };
+  return {
+    slug: best.topic.id,
+    confidence: Math.min(1, 0.5 + best.score * 0.25),
+    clarify: null,
+  };
 }
 
 async function routeProxy(transcript, topics) {
@@ -72,19 +71,19 @@ async function routeProxy(transcript, topics) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         transcript,
-        slugs: topics.map((t) => ({ id: t.id, fa: t.fa, de: t.de })),
+        lang: meta().code,
+        slugs: topics.map((topic) => ({ id: topic.id, name: topic.name, de: topic.de })),
       }),
     });
     if (!res.ok) throw new Error(`proxy ${res.status}`);
-    return await res.json(); // { slug, confidence, clarify }
+    return await res.json();
   } catch (err) {
-    // Network/key failure must never strand the user: fall back to mock.
     console.warn('[router] proxy failed, falling back to mock:', err);
     return routeMock(transcript, topics);
   }
 }
 
 export function route(transcript, topics) {
-  if (ROUTER_MODE === 'proxy') return routeProxy(transcript, topics);
+  if (meta().routerMode === 'proxy') return routeProxy(transcript, topics);
   return Promise.resolve(routeMock(transcript, topics));
 }

@@ -1,26 +1,34 @@
-// Aggressive offline caching for cheap Android + patchy data.
-//   - App shell + topics.json precached on install.
-//   - Audio (and anything else) cached on first fetch (cache-first), so the
-//     second visit works fully offline once a topic has been opened.
-// Bump CACHE_VERSION to invalidate old caches on deploy.
+// Offline caching for cheap Android on patchy data. Three tiers, because the
+// asset types have genuinely different needs:
+//
+//   shell (html/css/js)  cache-first, versioned. Bump CACHE to ship changes.
+//   data  (json)         stale-while-revalidate. Serves instantly offline, but
+//                        a corrected phone number reaches users on the next
+//                        visit instead of waiting for a version bump.
+//   audio (mp3)          cache-first, cached on play. Never precached: this
+//                        audience is on prepaid data and downloading every
+//                        language up front would spend their money for them.
 
-const CACHE_VERSION = 'wegweiser-v4';
+const CACHE = 'compass-v5';
 
-const PRECACHE = [
+const SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
   './css/styles.css',
   './js/app.js',
+  './js/content.js',
   './js/router.js',
   './js/player.js',
   './js/voice.js',
-  './data/topics.json',
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_VERSION).then((cache) => cache.addAll(PRECACHE)).then(() => self.skipWaiting())
+    caches
+      .open(CACHE)
+      .then((cache) => cache.addAll(SHELL))
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -28,29 +36,51 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) =>
-        Promise.all(keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k)))
-      )
+      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
       .then(() => self.clients.claim())
   );
 });
 
-self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
+function isData(url) {
+  return url.pathname.includes('/data/') && url.pathname.endsWith('.json');
+}
 
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request)
-        .then((response) => {
-          // Cache same-origin successful responses (audio, json, etc).
-          if (response.ok && new URL(event.request.url).origin === self.location.origin) {
-            const copy = response.clone();
-            caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, copy));
-          }
-          return response;
-        })
-        .catch(() => cached); // offline + uncached -> undefined; caller handles
+async function staleWhileRevalidate(request) {
+  const cache = await caches.open(CACHE);
+  const cached = await cache.match(request);
+
+  const network = fetch(request)
+    .then((response) => {
+      if (response.ok) cache.put(request, response.clone());
+      return response;
     })
-  );
+    .catch(() => null);
+
+  // Cached copy wins the race; the refresh lands for next time.
+  if (cached) return cached;
+  const response = await network;
+  if (response) return response;
+  return new Response('{}', { headers: { 'Content-Type': 'application/json' }, status: 503 });
+}
+
+async function cacheFirst(request) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+
+  const response = await fetch(request);
+  if (response.ok && new URL(request.url).origin === self.location.origin) {
+    const cache = await caches.open(CACHE);
+    cache.put(request, response.clone());
+  }
+  return response;
+}
+
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  if (request.method !== 'GET') return;
+
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+
+  event.respondWith(isData(url) ? staleWhileRevalidate(request) : cacheFirst(request));
 });

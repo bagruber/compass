@@ -1,98 +1,116 @@
-# Audio Guide — Wegweiser Deutschland
+# Compass — Wegweiser
 
-Static, offline-first PWA that helps newcomers navigate local bureaucracy by
-**icon and audio first** (illiteracy-first UX). Prototype: county of **Freising**,
-language **Farsi/Dari**.
+Offline-first PWA that gives newcomers a **first line of orientation** for local
+bureaucracy: roughly what this is, where to go, what to bring. Icon and audio
+first, so it works for someone who cannot read.
 
-Speak or tap a category → step-by-step player, each step with its own audio and
-an expandable German detail.
+It is deliberately not a manual. When a topic starts needing a full procedure,
+that is a signal to point at a caseworker, not to add steps.
+
+Pilot: county of **Freising**, language **Farsi/Dari**.
 
 ## Stack
 
 - Vanilla JS + ES modules, no build step
-- Service Worker for offline caching of shell + audio
-- Web Speech API for speech-to-text (`fa-IR`)
-- Voice → category routing behind one interface:
-  - **mock** (default): client-side keyword matcher, works offline, no secrets
-  - **proxy**: Cloudflare Worker calling Claude Haiku (`proxy/route-worker.js`)
-- `data/topics.json` is the single content source
+- Service Worker: shell cache-first, data stale-while-revalidate, audio cached on play
+- Web Speech API for speech-to-text, language taken from the active locale
+- Voice → topic routing behind one interface, both returning `{ slug, confidence, clarify }`:
+  - **mock** (default): offline keyword matcher, no secrets
+  - **proxy**: `proxy/route.php` holding the API key
+
+## Content model
+
+Language is a runtime parameter, not a hardcoded fact. Adding a language is a
+data job — two files, no code change.
+
+```
+data/structure.json     county, languages, router_mode, authorities,
+                        topic + step ids, icons, urgency, German text
+data/lang/<code>.json   everything in that language: UI strings, topic and
+                        step text, keywords, authority names
+```
+
+**German lives in `structure.json`**, not in the language files — German is
+German regardless of who is reading, and showing the German term is how a user
+points at what they need at the counter.
+
+The split also guarantees every language gets the same topics in the same
+order. Users who cannot read navigate by position; a grid that re-sorts itself
+between visits destroys the only wayfinding they have.
+
+### Adding a language
+
+1. Copy `data/lang/fa.json`, translate it, save as `data/lang/<code>.json`
+2. Add an entry to `languages` in `data/structure.json`
+   (`code`, `name` in its own script, `dir`, `stt` tag)
+3. Run `python tools/gen_silent_audio.py`
+
+## Audio
+
+Path by convention: `audio/<lang>/<topic>/{full,step-N}.mp3`. Nothing stores
+these paths, so dropping a native speaker's recording at the path replaces the
+generated one — no JSON edit anywhere.
+
+```sh
+python tools/gen_silent_audio.py   # placeholder MP3s for every missing clip
+python tools/gen_icons.py          # PWA icons
+```
+
+The generator records what it created in `audio/generated.json` with a hash of
+the source text. Re-runs only touch its own files. A **human recording is never
+overwritten** — but if the text behind one has changed since it was recorded,
+the script says so, because a recording that no longer matches its text is
+worse than a missing one.
+
+> The committed audio is **silent placeholders**. `synthesize()` in the script
+> is the single function to replace with a real TTS provider.
 
 ## Run locally
 
-Any static file server works — ES modules and the Service Worker need HTTP
-(not `file://`).
+ES modules and the Service Worker need HTTP, not `file://`.
 
 ```sh
-# Python
 python -m http.server 8000
-
-# or Node
-npx serve .
 ```
 
-Then open <http://localhost:8000>.
+Then open <http://localhost:8000>. The mic needs a secure context — `localhost`
+counts, a real domain needs HTTPS.
 
-> The mic (Web Speech STT) requires a secure context. `localhost` counts as
-> secure, so it works in local dev; on a real domain you need HTTPS.
+## Deploy
 
-## Regenerate placeholder assets
+**GitHub Pages — testing.** Enable Pages → deploy from `main` / root. All paths
+are relative, so a project subpath works. `router_mode` stays `"mock"`; there is
+no server side, so the offline matcher is the only router.
 
-The committed audio is **silent placeholders** and the icons are plain squares —
-both are throwaway scaffolding to be replaced before release.
+**Hostinger — production.** Upload the repo to the webroot, then:
 
-```sh
-python tools/gen_silent_audio.py   # writes a silent MP3 to every path in topics.json
-python tools/gen_icons.py          # writes icons/icon-192.png and icon-512.png
-```
+1. `proxy/route.php` → `<webroot>/api/route.php`
+2. `composer require anthropic-ai/sdk` next to it
+3. `.htaccess`: `SetEnv ANTHROPIC_API_KEY sk-ant-...`
+4. Set `"router_mode": "proxy"` in `data/structure.json`
 
-To add or edit content, change `data/topics.json` and re-run `gen_silent_audio.py`
-to create matching audio files.
+Same code both places; only the config differs. If the proxy is unreachable,
+routing falls back to the offline matcher on its own.
 
-## ⚠️ Content accuracy — authority data is unverified
+## ⚠️ Authority data is unverified
 
-`data/topics.json` includes an `authorities` map (offices each topic points to,
-shown as a "where to go" card with directions + call buttons). The office
-**names** are real, but **phone numbers and exact locations are placeholders**
-and every entry is flagged `"verified": false`. The map links search by office
-*name*, so they resolve to the right place without hardcoded coordinates, but
-the phone numbers must be confirmed with the Landratsamt Freising before release.
+`data/structure.json` flags every entry `"verified": false`, and the app shows
+that flag to the user. Office **names** are real; **phone numbers and locations
+are placeholders** and must be confirmed with the Landratsamt Freising before
+anyone relies on them. Map links search by office name, so they resolve
+correctly without hardcoded coordinates.
 
-## Deploy (GitHub Pages)
-
-Push to the `main` branch and enable Pages → "Deploy from branch" → `main` / root.
-Everything is relative-pathed, so it also works from a project subpath
-(`user.github.io/repo/`).
-
-## Switch routing to Claude Haiku (optional)
-
-The mock keyword router is the default. To use real intent routing:
-
-1. Deploy the proxy:
-   ```sh
-   cd proxy
-   wrangler secret put ANTHROPIC_API_KEY   # set your key as a Worker secret
-   wrangler deploy
-   ```
-2. In `js/router.js` set `ROUTER_MODE = 'proxy'` and point `PROXY_ENDPOINT` at
-   the deployed Worker URL.
-
-The client contract (`{ slug, confidence, clarify }`) is identical, so no other
-code changes. If the proxy is unreachable, routing falls back to the mock matcher.
-
-## Project layout
+## Layout
 
 ```
-index.html              # three screens: home grid, topic player, voice overlay
-css/styles.css          # RTL, illiteracy-first styling
-js/app.js               # topics load, hash routing, SW registration
-js/router.js            # mock keyword matcher + proxy-mode flag
-js/player.js            # step audio player
-js/voice.js             # Web Speech STT overlay
-data/topics.json        # single content source (6 Freising categories)
-audio/<topic>/*.mp3      # per-topic / per-step audio (silent placeholders)
-icons/                  # PWA icons (placeholders)
-sw.js                   # Service Worker (precache shell, cache-first audio)
-manifest.webmanifest    # PWA manifest
-proxy/route-worker.js   # Cloudflare Worker routing stub (Claude Haiku)
-tools/                  # asset generators
+index.html              language picker, home grid, topic, voice overlay
+css/styles.css          flat, high-contrast, direction-neutral (logical properties)
+js/app.js               boot, language resolution, hash routing
+js/content.js           loads and merges structure + language; single content source
+js/player.js            topic screen and audio
+js/voice.js             speech-to-text overlay
+js/router.js            voice → topic matching, locale-aware normalization
+sw.js                   three-tier Service Worker
+proxy/route.php         API-key proxy (Hostinger)
+tools/                  asset generators
 ```

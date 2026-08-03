@@ -1,74 +1,137 @@
+import * as content from './content.js';
 import { renderTopic, stopAudio } from './player.js';
 import { initVoice, openVoice, isVoiceSupported } from './voice.js';
 
 const screens = {
+  language: document.getElementById('screen-language'),
   home: document.getElementById('screen-home'),
   topic: document.getElementById('screen-topic'),
 };
 
 let topics = [];
 let byId = {};
-let authorities = {};
 
 async function boot() {
-  const res = await fetch('data/topics.json');
-  const data = await res.json();
-  topics = data.topics;
-  authorities = data.authorities || {};
-  byId = Object.fromEntries(topics.map((t) => [t.id, t]));
+  registerServiceWorker();
 
-  document.getElementById('county').textContent = data.meta.county;
-  document.getElementById('lang-label').textContent = data.meta.lang_label;
+  try {
+    await content.loadSpine();
+  } catch (err) {
+    return fail(err);
+  }
 
+  const code = content.preferredLanguage();
+  const available = content.languages();
+
+  // One language configured: the picker is a dead end, so skip it.
+  if (code) return start(code);
+  if (available.length === 1) return start(available[0].code);
+  renderLanguagePicker(available);
+  show('language');
+}
+
+async function start(code) {
+  try {
+    await content.loadLanguage(code);
+  } catch (err) {
+    return fail(err);
+  }
+  content.saveLanguage(code);
+
+  const info = content.meta();
+  document.documentElement.lang = info.code;
+  document.documentElement.dir = info.dir;
+
+  topics = content.topics();
+  byId = Object.fromEntries(topics.map((topic) => [topic.id, topic]));
+
+  applyStrings(info);
   renderHome();
   wireVoice();
-  wireRouting();
-  registerServiceWorker();
+  window.addEventListener('hashchange', route);
   route();
+}
+
+function applyStrings(info) {
+  document.getElementById('kicker').textContent = info.county;
+  document.getElementById('guide-label').textContent = content.t('guide');
+  document.getElementById('grid').setAttribute('aria-label', content.t('topics'));
+  document.getElementById('mic-label').textContent = content.t('speak');
+  document.getElementById('mic').setAttribute('aria-label', content.t('speak'));
+  document.getElementById('back').setAttribute('aria-label', content.t('back'));
+  document.getElementById('voice-close').setAttribute('aria-label', content.t('close'));
+  document.getElementById('voice-retry').textContent = content.t('retry');
+}
+
+function renderLanguagePicker(languages) {
+  const list = document.getElementById('language-list');
+  list.textContent = '';
+  languages.forEach((language) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'language-option';
+    button.lang = language.code;
+    button.dir = language.dir;
+    button.textContent = language.name;
+    button.addEventListener('click', () => start(language.code));
+    list.appendChild(button);
+  });
 }
 
 function renderHome() {
   const grid = document.getElementById('grid');
-  grid.innerHTML = '';
-  // Surface time-critical topics first; stable order for the rest. Tradeoff:
-  // this moves icons around vs. a fixed layout users could memorize by position.
-  const ordered = [...topics].sort(
-    (a, b) => (b.urgency === 'high') - (a.urgency === 'high')
-  );
-  ordered.forEach((t) => {
+  grid.textContent = '';
+
+  // Fixed order, always. Users who cannot read navigate by position; a grid
+  // that re-sorts itself between visits destroys the only wayfinding they
+  // have. Urgency is carried by the badge and ring instead.
+  topics.forEach((topic) => {
     const tile = document.createElement('a');
     tile.className = 'tile';
-    tile.href = `#/topic/${t.id}`;
-    const badge =
-      t.urgency === 'high'
-        ? '<span class="tile-urgent" aria-label="زمان‌حساس">⏰</span>'
-        : '';
-    if (t.urgency === 'high') tile.classList.add('is-urgent');
-    tile.innerHTML = `${badge}<span class="tile-icon">${t.icon}</span>
-      <span class="tile-label">${t.fa}</span>`;
+    tile.href = `#/topic/${topic.id}`;
+    if (topic.urgency === 'high') tile.classList.add('is-urgent');
+
+    if (topic.urgency === 'high') {
+      const badge = document.createElement('span');
+      badge.className = 'tile-badge';
+      badge.textContent = '⏰';
+      badge.setAttribute('aria-label', content.t('urgent'));
+      tile.appendChild(badge);
+    }
+
+    const icon = document.createElement('span');
+    icon.className = 'tile-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = topic.icon;
+
+    const label = document.createElement('span');
+    label.className = 'tile-label';
+    label.textContent = topic.name;
+
+    tile.append(icon, label);
     grid.appendChild(tile);
   });
 }
 
 function wireVoice() {
-  const elements = {
-    overlay: document.getElementById('voice-overlay'),
-    status: document.getElementById('voice-status'),
-    transcript: document.getElementById('voice-transcript'),
-    close: document.getElementById('voice-close'),
-    retry: document.getElementById('voice-retry'),
-  };
-  initVoice(elements, topics, (slug) => {
-    window.location.hash = `#/topic/${slug}`;
-  });
+  initVoice(
+    {
+      overlay: document.getElementById('voice-overlay'),
+      status: document.getElementById('voice-status'),
+      transcript: document.getElementById('voice-transcript'),
+      close: document.getElementById('voice-close'),
+      retry: document.getElementById('voice-retry'),
+    },
+    topics,
+    (slug) => {
+      window.location.hash = `#/topic/${slug}`;
+    }
+  );
 
   const mic = document.getElementById('mic');
-  if (!isVoiceSupported()) mic.classList.add('mic-unsupported');
+  mic.hidden = !isVoiceSupported();
   mic.addEventListener('click', openVoice);
-}
 
-function wireRouting() {
-  window.addEventListener('hashchange', route);
   document.getElementById('back').addEventListener('click', () => {
     window.location.hash = '#/';
   });
@@ -81,11 +144,13 @@ function show(name) {
 }
 
 function route() {
-  const hash = window.location.hash || '#/';
-  const match = hash.match(/^#\/topic\/(.+)$/);
-  if (match && byId[match[1]]) {
-    renderTopic(byId[match[1]], authorities, document.getElementById('topic-content'));
+  const match = (window.location.hash || '#/').match(/^#\/topic\/(.+)$/);
+  const topic = match && byId[match[1]];
+
+  if (topic) {
+    renderTopic(topic, document.getElementById('topic-content'));
     show('topic');
+    document.getElementById('back').focus();
   } else {
     stopAudio();
     show('home');
@@ -93,12 +158,23 @@ function route() {
   window.scrollTo(0, 0);
 }
 
-function registerServiceWorker() {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch((err) => {
-      console.warn('[app] SW registration failed:', err);
-    });
-  }
+// Content failed to load and there is nothing to fall back to. Say so in a way
+// that does not require reading: an icon plus a reload the user can tap.
+function fail(err) {
+  console.error('[app] boot failed:', err);
+  document.getElementById('boot-error').hidden = false;
+  Object.values(screens).forEach((node) => {
+    node.hidden = true;
+  });
 }
+
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('sw.js').catch((err) => {
+    console.warn('[app] SW registration failed:', err);
+  });
+}
+
+document.getElementById('reload')?.addEventListener('click', () => window.location.reload());
 
 boot();
