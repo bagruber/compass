@@ -1,0 +1,89 @@
+name: Deploy auf compass.gruber.am
+
+# Zwei Jobs: Der Build führt Fremdcode aus npm aus und sieht deshalb keine
+# Zugangsdaten. Erst der zweite Job bekommt den SSH-Schlüssel, und er führt
+# keinen Code aus dem Repo mehr aus.
+#
+# Secrets (Settings → Secrets and variables → Actions):
+#   SSH_HOST, SSH_PORT, SSH_USER   wie bei gruber-am-draft
+#   DEPLOY_PATH     absoluter Pfad zum Ordner der Subdomain,
+#                   /home/<user>/domains/gruber.am/public_html/compass
+#   DEPLOY_SSH_KEY  privater Teil eines eigenen Schlüsselpaars, ohne Passphrase
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Probelauf (listet Änderungen, überträgt und löscht nichts)"
+        type: boolean
+        default: true
+
+concurrency:
+  group: deploy-compass
+  cancel-in-progress: false
+
+jobs:
+  bauen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+          # .htaccess trägt den noindex-Header.
+          include-hidden-files: true
+          retention-days: 3
+
+  spiegeln:
+    needs: bauen
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+
+      - name: SSH einrichten
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Nach compass/ spiegeln
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          # Dasselbe Konto trägt gruber.am und pridemap.net. Ein leerer oder
+          # falscher Pfad würde mit --delete deren Dateien löschen, also wird
+          # alles abgelehnt, was nicht der compass-Ordner ist.
+          case "$DEPLOY_PATH" in
+            /home/*/compass|/home/*/compass/) ;;
+            *) echo "DEPLOY_PATH muss auf den compass-Ordner zeigen, ist aber '$DEPLOY_PATH'"; exit 1 ;;
+          esac
+          DRY=""
+          if [ "$DRY_RUN" = "true" ]; then DRY="--dry-run"; fi
+          rsync -rltvz --delete $DRY \
+            -e "ssh -i ~/.ssh/deploy_key -p $SSH_PORT -o StrictHostKeyChecking=yes" \
+            dist/ "$SSH_USER@$SSH_HOST:$DEPLOY_PATH"
