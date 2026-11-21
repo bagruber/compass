@@ -1,7 +1,8 @@
 // Offline caching for cheap Android on patchy data. Three tiers, because the
 // asset types have genuinely different needs:
 //
-//   shell (html/css/js)  cache-first, versioned. Bump CACHE to ship changes.
+//   shell (html/css/js)  cache-first, versioned. The build writes the name
+//                        and the file list (vite.config.ts).
 //   data  (json)         stale-while-revalidate. Serves instantly offline, but
 //                        a corrected phone number reaches users on the next
 //                        visit instead of waiting for a version bump.
@@ -9,19 +10,9 @@
 //                        audience is on prepaid data and downloading every
 //                        language up front would spend their money for them.
 
-const CACHE = 'compass-v5';
+const CACHE = '__CACHE__';
 
-const SHELL = [
-  './',
-  './index.html',
-  './manifest.webmanifest',
-  './css/styles.css',
-  './js/app.js',
-  './js/content.js',
-  './js/router.js',
-  './js/player.js',
-  './js/voice.js',
-];
+const SHELL = '__SHELL__';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

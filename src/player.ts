@@ -5,23 +5,25 @@
 // innerHTML: content comes from JSON that a caseworker will eventually edit,
 // and an apostrophe in a translation must never be able to break the page.
 
-import { t } from './content.js';
+import { t, type Authority, type Step, type Topic } from './content.ts';
 
-let audio = null; // one shared element; only one clip plays at a time
-let activeButton = null;
+type PlayState = 'idle' | 'loading' | 'playing' | 'error';
 
-function setButtonState(button, state) {
+let audio: HTMLAudioElement | null = null; // one shared element; only one clip plays at a time
+let activeButton: HTMLButtonElement | null = null;
+
+function setButtonState(button: HTMLButtonElement, state: PlayState) {
   button.classList.toggle('is-loading', state === 'loading');
   button.classList.toggle('is-playing', state === 'playing');
   button.classList.toggle('is-error', state === 'error');
   button.setAttribute('aria-pressed', String(state === 'playing'));
 }
 
-function reset(button) {
+function reset(button: HTMLButtonElement | null) {
   if (button) setButtonState(button, 'idle');
 }
 
-function play(src, button) {
+function play(src: string, button: HTMLButtonElement) {
   if (!audio) audio = new Audio();
 
   // Tapping the active button again stops it (and cancels an in-flight load).
@@ -61,7 +63,7 @@ export function stopAudio() {
   activeButton = null;
 }
 
-function playButton(src, label, extraClass) {
+function playButton(src: string, label: string, extraClass?: string) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = extraClass ? `btn-play ${extraClass}` : 'btn-play';
@@ -85,7 +87,7 @@ function playButton(src, label, extraClass) {
 
 // Deadline banner. Icon + colour together carry "act fast" — never colour
 // alone, so it survives colour-blindness and cross-cultural colour meaning.
-function deadlineBanner(topic) {
+function deadlineBanner(topic: Topic) {
   const banner = document.createElement('div');
   banner.className = 'deadline';
 
@@ -115,7 +117,7 @@ function deadlineBanner(topic) {
 
 // Where to go: a physical office with reading-free actions — tap the pin for
 // directions, tap the phone to call.
-function destination(auth) {
+function destination(auth: Authority) {
   const card = document.createElement('section');
   card.className = 'destination';
 
@@ -173,7 +175,7 @@ function destination(auth) {
   return card;
 }
 
-function glyph(char) {
+function glyph(char: string) {
   const span = document.createElement('span');
   span.className = 'action-icon';
   span.setAttribute('aria-hidden', 'true');
@@ -181,13 +183,13 @@ function glyph(char) {
   return span;
 }
 
-function label(text) {
+function label(text: string) {
   const span = document.createElement('span');
   span.textContent = text;
   return span;
 }
 
-function stepItem(topic, step) {
+function stepItem(topic: Topic, step: Step) {
   const item = document.createElement('li');
   item.className = 'step';
 
@@ -233,7 +235,7 @@ function stepItem(topic, step) {
   return item;
 }
 
-export function renderTopic(topic, container) {
+export function renderTopic(topic: Topic, container: HTMLElement) {
   stopAudio();
   container.textContent = '';
 

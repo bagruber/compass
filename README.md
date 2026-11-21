@@ -11,8 +11,9 @@ Pilot: county of **Freising**, language **Farsi/Dari**.
 
 ## Stack
 
-- Vanilla JS + ES modules, no build step
-- Service Worker: shell cache-first, data stale-while-revalidate, audio cached on play
+- TypeScript, no framework. Vite builds it, Vitest tests it.
+- Service Worker: shell cache-first, data stale-while-revalidate, audio cached on play.
+  The build writes its file list and cache name (`vite.config.ts`).
 - Web Speech API for speech-to-text, language taken from the active locale
 - Voice → topic routing behind one interface, both returning `{ slug, confidence, clarify }`:
   - **mock** (default): offline keyword matcher, no secrets
@@ -24,10 +25,10 @@ Language is a runtime parameter, not a hardcoded fact. Adding a language is a
 data job — two files, no code change.
 
 ```
-data/structure.json     county, languages, router_mode, authorities,
-                        topic + step ids, icons, urgency, German text
-data/lang/<code>.json   everything in that language: UI strings, topic and
-                        step text, keywords, authority names
+public/data/structure.json     county, languages, router_mode, authorities,
+                               topic + step ids, icons, urgency, German text
+public/data/lang/<code>.json   everything in that language: UI strings, topic
+                               and step text, keywords, authority names
 ```
 
 **German lives in `structure.json`**, not in the language files — German is
@@ -40,14 +41,14 @@ between visits destroys the only wayfinding they have.
 
 ### Adding a language
 
-1. Copy `data/lang/fa.json`, translate it, save as `data/lang/<code>.json`
-2. Add an entry to `languages` in `data/structure.json`
+1. Copy `public/data/lang/fa.json`, translate it, save as `public/data/lang/<code>.json`
+2. Add an entry to `languages` in `public/data/structure.json`
    (`code`, `name` in its own script, `dir`, `stt` tag)
 3. Run `python tools/gen_silent_audio.py`
 
 ## Audio
 
-Path by convention: `audio/<lang>/<topic>/{full,step-N}.mp3`. Nothing stores
+Path by convention: `public/audio/<lang>/<topic>/{full,step-N}.mp3`. Nothing stores
 these paths, so dropping a native speaker's recording at the path replaces the
 generated one — no JSON edit anywhere.
 
@@ -56,7 +57,7 @@ python tools/gen_silent_audio.py   # placeholder MP3s for every missing clip
 python tools/gen_icons.py          # PWA icons
 ```
 
-The generator records what it created in `audio/generated.json` with a hash of
+The generator records what it created in `public/audio/generated.json` with a hash of
 the source text. Re-runs only touch its own files. A **human recording is never
 overwritten** — but if the text behind one has changed since it was recorded,
 the script says so, because a recording that no longer matches its text is
@@ -67,34 +68,38 @@ worse than a missing one.
 
 ## Run locally
 
-ES modules and the Service Worker need HTTP, not `file://`.
-
 ```sh
-python -m http.server 8000
+pnpm install
+pnpm dev        # http://localhost:5173, no Service Worker
+pnpm test
+pnpm build      # type check, then dist/
+pnpm preview    # serves dist/, with the Service Worker
 ```
 
-Then open <http://localhost:8000>. The mic needs a secure context — `localhost`
-counts, a real domain needs HTTPS.
+The mic needs a secure context — `localhost` counts, a real domain needs HTTPS.
+Append `?debug` to the URL for the routing inspector.
 
 ## Deploy
 
-**GitHub Pages — testing.** Enable Pages → deploy from `main` / root. All paths
-are relative, so a project subpath works. `router_mode` stays `"mock"`; there is
-no server side, so the offline matcher is the only router.
+Pushing to `main` runs `.github/workflows/gruber-am.yml`: test, build, then
+`rsync` of `dist/` to **compass.gruber.am** on Hostinger. Starting the workflow
+by hand defaults to a dry run. The five secrets it needs are listed at the top
+of the workflow file.
 
-**Hostinger — production.** Upload the repo to the webroot, then:
+The site is a test deployment: `public/.htaccess` and a meta tag keep it out of
+search engines.
 
-1. `proxy/route.php` → `<webroot>/api/route.php`
-2. `composer require anthropic-ai/sdk` next to it
-3. `.htaccess`: `SetEnv ANTHROPIC_API_KEY sk-ant-...`
-4. Set `"router_mode": "proxy"` in `data/structure.json`
+GitHub Pages from the branch root no longer works — the repo holds sources, not
+the built site.
 
-Same code both places; only the config differs. If the proxy is unreachable,
-routing falls back to the offline matcher on its own.
+**The routing proxy is not deployed yet.** `proxy/route.php` has to end up at
+`<webroot>/api/route.php` with its Composer packages and an API key the web
+server cannot hand out; until then `router_mode` stays `"mock"`. If the proxy
+is unreachable, routing falls back to the offline matcher on its own.
 
 ## ⚠️ Authority data is unverified
 
-`data/structure.json` flags every entry `"verified": false`, and the app shows
+`public/data/structure.json` flags every entry `"verified": false`, and the app shows
 that flag to the user. Office **names** are real; **phone numbers and locations
 are placeholders** and must be confirmed with the Landratsamt Freising before
 anyone relies on them. Map links search by office name, so they resolve
@@ -105,12 +110,15 @@ correctly without hardcoded coordinates.
 ```
 index.html              language picker, home grid, topic, voice overlay
 css/styles.css          flat, high-contrast, direction-neutral (logical properties)
-js/app.js               boot, language resolution, hash routing
-js/content.js           loads and merges structure + language; single content source
-js/player.js            topic screen and audio
-js/voice.js             speech-to-text overlay
-js/router.js            voice → topic matching, locale-aware normalization
-sw.js                   three-tier Service Worker
+src/app.ts              boot, language resolution, hash routing
+src/content.ts          loads and merges structure + language; single content source
+src/player.ts           topic screen and audio
+src/voice.ts            speech-to-text overlay
+src/router.ts           voice → topic matching, locale-aware normalization
+src/debug.ts            routing inspector, loaded only behind ?debug
+src/sw.js               Service Worker template, filled in by the build
+public/                 served as is: data, audio, icons, manifest, .htaccess
+test/                   Vitest: content merge, routing, the app in jsdom
 proxy/route.php         API-key proxy (Hostinger)
-tools/                  asset generators
+tools/                  asset generators (Python, run once)
 ```

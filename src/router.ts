@@ -8,7 +8,21 @@
 //
 // Any proxy failure falls back to mock. Routing must never dead-end.
 
-import { meta, t } from './content.js';
+import { meta, t, type Topic } from './content.ts';
+
+type Equivalents = [string, string][];
+
+export interface RouteResult {
+  slug: string | null;
+  confidence: number;
+  clarify: string | null;
+  trace: {
+    mode: 'mock' | 'proxy';
+    reason: string;
+    normalized?: string;
+    scores: { id: string; name: string; score: number; hits: string[] }[];
+  };
+}
 
 const PROXY_ENDPOINT = 'api/route.php';
 
@@ -17,7 +31,7 @@ const PROXY_ENDPOINT = 'api/route.php';
 // builds this audience's phones actually run.
 const MARKS = /[̀-ͯؐ-ًؚ-ٰٟۖ-ۭ]/g;
 
-function normalize(text, equivalents) {
+function normalize(text: string, equivalents: Equivalents) {
   let s = (text || '')
     .toLowerCase()
     .normalize('NFKD')
@@ -29,12 +43,12 @@ function normalize(text, equivalents) {
   return s;
 }
 
-function scoreTopic(haystack, topic, equivalents) {
+function scoreTopic(haystack: string, topic: Topic, equivalents: Equivalents) {
   const hits = topic.keywords.filter((kw) => haystack.includes(normalize(kw, equivalents)));
   return { score: hits.length, hits };
 }
 
-function routeMock(transcript, topics) {
+function routeMock(transcript: string, topics: Topic[]): RouteResult {
   const { equivalents } = meta();
   const hay = normalize(transcript, equivalents);
 
@@ -48,7 +62,7 @@ function routeMock(transcript, topics) {
   // already exist) and the only way to tell a wrong keyword list from a wrong
   // transcript when a test phrase routes somewhere surprising.
   const trace = {
-    mode: 'mock',
+    mode: 'mock' as const,
     normalized: hay,
     scores: scored.map(({ topic, score, hits }) => ({
       id: topic.id,
@@ -81,7 +95,7 @@ function routeMock(transcript, topics) {
   };
 }
 
-async function routeProxy(transcript, topics) {
+async function routeProxy(transcript: string, topics: Topic[]): Promise<RouteResult> {
   try {
     const res = await fetch(PROXY_ENDPOINT, {
       method: 'POST',
@@ -102,7 +116,7 @@ async function routeProxy(transcript, topics) {
   }
 }
 
-export function route(transcript, topics) {
+export function route(transcript: string, topics: Topic[]): Promise<RouteResult> {
   if (meta().routerMode === 'proxy') return routeProxy(transcript, topics);
   return Promise.resolve(routeMock(transcript, topics));
 }

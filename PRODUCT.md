@@ -65,8 +65,9 @@ spoken sequence of steps plus a tap-to-navigate and tap-to-call destination.
 
 **Confirmed:**
 
-- Static, offline-first PWA. No build step required to run; ES modules served
-  directly. Service Worker precaches the shell and caches audio on first play.
+- Static, offline-first PWA. TypeScript, built by Vite into plain files; serving
+  them needs no server-side runtime. Service Worker precaches the shell and the
+  data and caches audio on first play.
 - Content is data, not code: `data/` is the single source of truth for topics,
   steps, authorities, and per-language strings.
 - **Multi-language is architectural, decided.** Language is a runtime parameter,
@@ -86,11 +87,11 @@ spoken sequence of steps plus a tap-to-navigate and tap-to-call destination.
   client-side keyword matcher (default) and an optional server-side LLM router.
   Both return `{ slug, confidence, clarify }`. Falling back to the offline
   matcher on any failure is required behaviour, not an optimization.
-- **Deployment is dual, decided.** GitHub Pages serves the testing/staging
-  build (push-to-deploy, disposable link for field tests). Hostinger serves the
-  real deployment (own domain, server-side proxy able to hold an API key,
-  cache headers for audio, audio assets outside git history). All paths stay
-  relative so both targets work, including from a repo subpath.
+- **Deployment is Hostinger only, decided 21.11.2026** (replaces the earlier
+  split with GitHub Pages for testing). The test deployment runs at
+  compass.gruber.am, kept out of search engines, with a server-side proxy able
+  to hold an API key. All paths stay relative, so a later move to another
+  domain or into a subfolder needs no code change.
 
 **Explicitly undecided:**
 

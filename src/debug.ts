@@ -7,7 +7,8 @@
 // point is that you can tell at a glance which part is the product and which
 // part is the instrument.
 
-import { route } from './router.js';
+import type { Topic } from './content.ts';
+import { route, type RouteResult } from './router.ts';
 
 const STYLES = `
 .dbg {
@@ -51,25 +52,25 @@ const STYLES = `
 .dbg-verdict a { color: #58a6ff; }
 `;
 
-let topics = [];
-let panel;
-let out;
+let topics: Topic[] = [];
+let panel: HTMLElement;
+let out: HTMLElement;
 
-function el(tag, className, text) {
+function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string | null, text?: string) {
   const node = document.createElement(tag);
   if (className) node.className = className;
   if (text != null) node.textContent = text;
   return node;
 }
 
-function row(key, value) {
+function row(key: string, value: string) {
   const line = el('div', 'dbg-row');
   line.append(el('span', 'dbg-k', key), el('span', 'dbg-v', value));
   return line;
 }
 
-function render(transcript, result, source) {
-  const trace = result.trace || {};
+function render(transcript: string, result: RouteResult, source: string) {
+  const trace = result.trace;
   out.textContent = '';
 
   out.append(row('heard', transcript));
@@ -104,12 +105,12 @@ function render(transcript, result, source) {
   out.append(verdict);
 }
 
-async function tryPhrase(phrase) {
+async function tryPhrase(phrase: string) {
   if (!phrase.trim()) return;
   render(phrase, await route(phrase, topics), 'typed');
 }
 
-export function initDebug(topicList) {
+export function initDebug(topicList: Topic[]) {
   topics = topicList;
 
   document.head.append(el('style', null, STYLES));
@@ -141,7 +142,7 @@ export function initDebug(topicList) {
   document.body.append(panel);
 
   document.addEventListener('compass:route', (event) => {
-    const { transcript, result, source } = event.detail;
+    const { transcript, result, source } = (event as CustomEvent).detail;
     render(transcript, result, source);
   });
 }

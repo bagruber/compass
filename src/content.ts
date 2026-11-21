@@ -7,8 +7,75 @@
 
 const LANG_KEY = 'compass.lang';
 
-let spine = null;
-let pack = null;
+export interface Language {
+  code: string;
+  name: string;
+  dir: 'rtl' | 'ltr';
+  stt: string;
+}
+
+interface SpineAuthority {
+  de: string;
+  icon: string;
+  maps_query: string;
+  phone?: string;
+  verified?: boolean;
+}
+
+interface Spine {
+  county: string;
+  router_mode?: 'mock' | 'proxy';
+  languages: Language[];
+  authorities: Record<string, SpineAuthority>;
+  topics: {
+    id: string;
+    icon: string;
+    de: string;
+    authority?: string;
+    urgency?: 'high';
+    deadline_de?: string;
+    steps: { id: number; de: string }[];
+  }[];
+}
+
+interface Pack {
+  code: string;
+  equivalents?: [string, string][];
+  ui?: Record<string, string>;
+  authorities?: Record<string, string>;
+  topics?: Record<
+    string,
+    { name: string; deadline?: string; keywords?: string[]; steps?: Record<string, string> }
+  >;
+}
+
+export interface Authority extends SpineAuthority {
+  name: string;
+}
+
+export interface Step {
+  id: number;
+  text: string;
+  de: string;
+  audio: string;
+}
+
+export interface Topic {
+  id: string;
+  icon: string;
+  name: string;
+  de: string;
+  urgency?: 'high';
+  deadline: string | null;
+  deadlineDe: string | null;
+  keywords: string[];
+  authority: Authority | null;
+  audioFull: string;
+  steps: Step[];
+}
+
+let spine: Spine;
+let pack: Pack;
 
 export async function loadSpine() {
   const res = await fetch('data/structure.json');
@@ -17,7 +84,7 @@ export async function loadSpine() {
   return spine;
 }
 
-export async function loadLanguage(code) {
+export async function loadLanguage(code: string) {
   const res = await fetch(`data/lang/${code}.json`);
   if (!res.ok) throw new Error(`lang/${code}.json ${res.status}`);
   pack = await res.json();
@@ -30,7 +97,7 @@ export function languages() {
 }
 
 export function meta() {
-  const lang = spine.languages.find((l) => l.code === pack.code);
+  const lang = spine.languages.find((l) => l.code === pack.code)!;
   return {
     code: pack.code,
     dir: lang.dir,
@@ -43,7 +110,7 @@ export function meta() {
 
 // UI string with {placeholder} substitution. Missing keys return the key
 // itself — visible in testing, harmless in production, never a crash.
-export function t(key, vars) {
+export function t(key: string, vars?: Record<string, string>) {
   let s = pack.ui?.[key] ?? key;
   if (vars) {
     for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, v);
@@ -54,12 +121,12 @@ export function t(key, vars) {
 // audio/<lang>/<topic>/step-<n>.mp3, or full.mp3 when step is omitted.
 // Convention, not configuration: dropping a native speaker's recording at the
 // path replaces the generated one with no JSON edit anywhere.
-export function audioFor(topicId, stepId) {
+export function audioFor(topicId: string, stepId?: number) {
   const file = stepId == null ? 'full' : `step-${stepId}`;
   return `audio/${pack.code}/${topicId}/${file}.mp3`;
 }
 
-export function authority(id) {
+export function authority(id: string): Authority | null {
   const a = spine.authorities[id];
   if (!a) return null;
   return { ...a, name: pack.authorities?.[id] || a.de };
@@ -68,11 +135,11 @@ export function authority(id) {
 // Merged, render-ready topics. A topic missing from the language pack is
 // dropped rather than shown untranslated — a half-translated tile is worse
 // than an absent one for someone navigating by shape.
-export function topics() {
+export function topics(): Topic[] {
   return spine.topics
     .filter((topic) => pack.topics?.[topic.id])
     .map((topic) => {
-      const text = pack.topics[topic.id];
+      const text = pack.topics![topic.id];
       return {
         id: topic.id,
         icon: topic.icon,
@@ -107,7 +174,7 @@ export function preferredLanguage() {
   return null;
 }
 
-export function saveLanguage(code) {
+export function saveLanguage(code: string) {
   try {
     localStorage.setItem(LANG_KEY, code);
   } catch (e) {

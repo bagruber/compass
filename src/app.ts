@@ -1,15 +1,17 @@
-import * as content from './content.js';
-import { renderTopic, stopAudio } from './player.js';
-import { initVoice, openVoice, isVoiceSupported } from './voice.js';
+import * as content from './content.ts';
+import type { Language, Topic } from './content.ts';
+import { $ } from './dom.ts';
+import { renderTopic, stopAudio } from './player.ts';
+import { initVoice, openVoice, isVoiceSupported } from './voice.ts';
 
 const screens = {
-  language: document.getElementById('screen-language'),
-  home: document.getElementById('screen-home'),
-  topic: document.getElementById('screen-topic'),
+  language: $('screen-language'),
+  home: $('screen-home'),
+  topic: $('screen-topic'),
 };
 
-let topics = [];
-let byId = {};
+let topics: Topic[] = [];
+let byId: Record<string, Topic> = {};
 
 async function boot() {
   registerServiceWorker();
@@ -30,7 +32,7 @@ async function boot() {
   show('language');
 }
 
-async function start(code) {
+async function start(code: string) {
   try {
     await content.loadLanguage(code);
   } catch (err) {
@@ -53,23 +55,23 @@ async function start(code) {
 
   // Dynamic import, so the inspector is never fetched on a normal visit.
   if (new URLSearchParams(window.location.search).has('debug')) {
-    import('./debug.js').then((debug) => debug.initDebug(topics));
+    import('./debug.ts').then((debug) => debug.initDebug(topics));
   }
 }
 
-function applyStrings(info) {
-  document.getElementById('kicker').textContent = info.county;
-  document.getElementById('guide-label').textContent = content.t('guide');
-  document.getElementById('grid').setAttribute('aria-label', content.t('topics'));
-  document.getElementById('mic-label').textContent = content.t('speak');
-  document.getElementById('mic').setAttribute('aria-label', content.t('speak'));
-  document.getElementById('back').setAttribute('aria-label', content.t('back'));
-  document.getElementById('voice-close').setAttribute('aria-label', content.t('close'));
-  document.getElementById('voice-retry').textContent = content.t('retry');
+function applyStrings(info: ReturnType<typeof content.meta>) {
+  $('kicker').textContent = info.county;
+  $('guide-label').textContent = content.t('guide');
+  $('grid').setAttribute('aria-label', content.t('topics'));
+  $('mic-label').textContent = content.t('speak');
+  $('mic').setAttribute('aria-label', content.t('speak'));
+  $('back').setAttribute('aria-label', content.t('back'));
+  $('voice-close').setAttribute('aria-label', content.t('close'));
+  $('voice-retry').textContent = content.t('retry');
 }
 
-function renderLanguagePicker(languages) {
-  const list = document.getElementById('language-list');
+function renderLanguagePicker(languages: Language[]) {
+  const list = $('language-list');
   list.textContent = '';
   languages.forEach((language) => {
     const button = document.createElement('button');
@@ -84,7 +86,7 @@ function renderLanguagePicker(languages) {
 }
 
 function renderHome() {
-  const grid = document.getElementById('grid');
+  const grid = $('grid');
   grid.textContent = '';
 
   // Fixed order, always. Users who cannot read navigate by position; a grid
@@ -121,11 +123,11 @@ function renderHome() {
 function wireVoice() {
   initVoice(
     {
-      overlay: document.getElementById('voice-overlay'),
-      status: document.getElementById('voice-status'),
-      transcript: document.getElementById('voice-transcript'),
-      close: document.getElementById('voice-close'),
-      retry: document.getElementById('voice-retry'),
+      overlay: $('voice-overlay'),
+      status: $('voice-status'),
+      transcript: $('voice-transcript'),
+      close: $('voice-close'),
+      retry: $('voice-retry'),
     },
     topics,
     (slug) => {
@@ -133,16 +135,16 @@ function wireVoice() {
     }
   );
 
-  const mic = document.getElementById('mic');
+  const mic = $('mic');
   mic.hidden = !isVoiceSupported();
   mic.addEventListener('click', openVoice);
 
-  document.getElementById('back').addEventListener('click', () => {
+  $('back').addEventListener('click', () => {
     window.location.hash = '#/';
   });
 }
 
-function show(name) {
+function show(name: keyof typeof screens) {
   Object.entries(screens).forEach(([key, node]) => {
     node.hidden = key !== name;
   });
@@ -153,9 +155,9 @@ function route() {
   const topic = match && byId[match[1]];
 
   if (topic) {
-    renderTopic(topic, document.getElementById('topic-content'));
+    renderTopic(topic, $('topic-content'));
     show('topic');
-    document.getElementById('back').focus();
+    $('back').focus();
   } else {
     stopAudio();
     show('home');
@@ -165,16 +167,17 @@ function route() {
 
 // Content failed to load and there is nothing to fall back to. Say so in a way
 // that does not require reading: an icon plus a reload the user can tap.
-function fail(err) {
+function fail(err: unknown) {
   console.error('[app] boot failed:', err);
-  document.getElementById('boot-error').hidden = false;
+  $('boot-error').hidden = false;
   Object.values(screens).forEach((node) => {
     node.hidden = true;
   });
 }
 
 function registerServiceWorker() {
-  if (!('serviceWorker' in navigator)) return;
+  // The Service Worker is written by the build; the dev server has none.
+  if (!import.meta.env.PROD || !('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').catch((err) => {
     console.warn('[app] SW registration failed:', err);
   });

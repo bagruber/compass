@@ -4,3 +4,6 @@
 # PHP proxy dependencies — installed on the host, never committed
 proxy/vendor/
 proxy/composer.lock
+
+node_modules/
+dist/

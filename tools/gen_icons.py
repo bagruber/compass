@@ -7,7 +7,7 @@ import os
 import struct
 import zlib
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "public")
 GREEN = (11, 110, 79)
 WHITE = (255, 255, 255)
 

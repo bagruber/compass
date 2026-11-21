@@ -20,7 +20,7 @@ import hashlib
 import json
 import os
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "public")
 MANIFEST = os.path.join(ROOT, "audio", "generated.json")
 
 # One MPEG-1 Layer III frame: header (0xFF 0xFB 0x90 0x00) + zeroed payload.

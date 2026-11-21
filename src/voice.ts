@@ -5,21 +5,45 @@
 // best-effort: every failure lands on a visible retry and leaves the icon grid
 // intact behind it. Voice is never the only door.
 
-import { route } from './router.js';
-import { meta, t } from './content.js';
+import { route } from './router.ts';
+import { meta, t, type Topic } from './content.ts';
 
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+// The DOM typings know the recognition events but not the recognizer itself,
+// and Chrome still ships it under the webkit prefix. This is the part used here.
+interface Recognition {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+}
 
-let el = {};
-let onNavigate = null;
-let topicList = [];
-let recognition = null;
+interface VoiceElements {
+  overlay: HTMLElement;
+  status: HTMLElement;
+  transcript: HTMLElement;
+  close: HTMLElement;
+  retry: HTMLElement;
+}
+
+type VoiceState = 'listening' | 'processing' | 'found' | 'error' | 'unsupported';
+
+const speech = window as unknown as Record<string, (new () => Recognition) | undefined>;
+const SR = speech.SpeechRecognition || speech.webkitSpeechRecognition;
+
+let el: VoiceElements;
+let onNavigate: (slug: string) => void;
+let topicList: Topic[] = [];
+let recognition: Recognition | null = null;
 
 export function isVoiceSupported() {
   return Boolean(SR);
 }
 
-export function initVoice(elements, topics, navigateFn) {
+export function initVoice(elements: VoiceElements, topics: Topic[], navigateFn: (slug: string) => void) {
   el = elements;
   topicList = topics;
   onNavigate = navigateFn;
@@ -32,12 +56,12 @@ export function initVoice(elements, topics, navigateFn) {
 
 // [data-state] drives which glyph shows and whether retry is offered:
 // listening | processing | found | error | unsupported
-function setState(state, statusText) {
+function setState(state: VoiceState, statusText: string) {
   el.overlay.dataset.state = state;
   el.status.textContent = statusText;
 }
 
-function speak(text) {
+function speak(text: string) {
   if (!('speechSynthesis' in window)) return;
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = meta().stt;
@@ -69,7 +93,7 @@ export function openVoice() {
   setState('listening', t('listening'));
   el.close.focus();
 
-  recognition = new SR();
+  recognition = new SR!();
   recognition.lang = meta().stt;
   recognition.interimResults = true;
   recognition.maxAlternatives = 1;
@@ -96,7 +120,7 @@ export function openVoice() {
   }
 }
 
-async function handleTranscript(transcript) {
+async function handleTranscript(transcript: string) {
   setState('processing', t('searching'));
   const result = await route(transcript, topicList);
 
@@ -112,12 +136,14 @@ async function handleTranscript(transcript) {
     return;
   }
 
-  const topic = topicList.find((item) => item.id === result.slug);
+  // Both routers only return ids from the list they were given.
+  const slug = result.slug;
+  const topic = topicList.find((item) => item.id === slug)!;
   setState('found', topic.name);
   speak(topic.name);
   setTimeout(() => {
     closeVoice();
-    onNavigate(result.slug);
+    onNavigate(slug);
   }, 900);
 }
 

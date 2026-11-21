@@ -1,0 +1,40 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`where keywords run out > a health-insurance card also counts as a question about work 1`] = `
+{
+  "got": null,
+  "wanted": "gesundheit",
+}
+`;
+
+exports[`where keywords run out > اجاره‌ام خیلی زیاد است 1`] = `
+{
+  "got": null,
+  "phrase": "اجاره‌ام خیلی زیاد است",
+  "wanted": null,
+}
+`;
+
+exports[`where keywords run out > دخترم بعد از مدرسه تنها به خانه می‌آید 1`] = `
+{
+  "got": null,
+  "phrase": "دخترم بعد از مدرسه تنها به خانه می‌آید",
+  "wanted": "kita-schule",
+}
+`;
+
+exports[`where keywords run out > دندانم درد می‌کند 1`] = `
+{
+  "got": null,
+  "phrase": "دندانم درد می‌کند",
+  "wanted": "gesundheit",
+}
+`;
+
+exports[`where keywords run out > نامه‌ای از اداره آمده و نمی‌فهمم 1`] = `
+{
+  "got": null,
+  "phrase": "نامه‌ای از اداره آمده و نمی‌فهمم",
+  "wanted": null,
+}
+`;
