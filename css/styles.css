@@ -107,7 +107,7 @@ body {
   gap: 0.7rem;
   width: 100%;
   min-height: 80px;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.75rem;
   border: none;
   border-radius: var(--radius);
   background: var(--accent);
@@ -123,6 +123,47 @@ body {
 .mic-glyph {
   font-size: 1.9rem;
   line-height: 1;
+}
+
+.ask {
+  display: flex;
+  gap: 0.6rem;
+}
+.ask-input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--tap);
+  padding: 0 1rem;
+  /* --line is too faint to mark where one can type. */
+  border: 1px solid var(--muted);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+}
+.ask-input::placeholder {
+  color: var(--muted);
+}
+.ask-send {
+  flex-shrink: 0;
+  width: var(--tap);
+  height: var(--tap);
+  border: none;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.ask-send:active {
+  background: #d3e6dd;
+}
+/* The line is always there, so an answer appearing does not push the grid
+   down under a thumb that is already on its way. */
+.ask-status {
+  margin: 0.4rem 0 0.9rem;
+  min-height: 1.45em;
+  color: var(--muted);
 }
 
 .grid {

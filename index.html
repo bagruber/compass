@@ -36,6 +36,16 @@
         <span id="mic-label" class="mic-label"></span>
       </button>
 
+      <!-- Typing is the second door to the same routing: for phones without
+           speech recognition, and for places where one cannot speak aloud. -->
+      <form id="ask" class="ask">
+        <input id="ask-input" class="ask-input" type="text" enterkeyhint="search" autocomplete="off" />
+        <button id="ask-send" class="ask-send" type="submit">
+          <span aria-hidden="true">🔍</span>
+        </button>
+      </form>
+      <p id="ask-status" class="ask-status" role="status" aria-live="polite"></p>
+
       <nav id="grid" class="grid"></nav>
     </main>
 

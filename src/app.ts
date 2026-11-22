@@ -2,6 +2,7 @@ import * as content from './content.ts';
 import type { Language, Topic } from './content.ts';
 import { $ } from './dom.ts';
 import { renderTopic, stopAudio } from './player.ts';
+import { route as routePhrase } from './router.ts';
 import { initVoice, openVoice, isVoiceSupported } from './voice.ts';
 
 const screens = {
@@ -50,6 +51,7 @@ async function start(code: string) {
   applyStrings(info);
   renderHome();
   wireVoice();
+  wireAsk();
   window.addEventListener('hashchange', route);
   route();
 
@@ -68,6 +70,9 @@ function applyStrings(info: ReturnType<typeof content.meta>) {
   $('back').setAttribute('aria-label', content.t('back'));
   $('voice-close').setAttribute('aria-label', content.t('close'));
   $('voice-retry').textContent = content.t('retry');
+  $('ask-input').setAttribute('placeholder', content.t('type'));
+  $('ask-input').setAttribute('aria-label', content.t('type'));
+  $('ask-send').setAttribute('aria-label', content.t('search'));
 }
 
 function renderLanguagePicker(languages: Language[]) {
@@ -141,6 +146,31 @@ function wireVoice() {
 
   $('back').addEventListener('click', () => {
     window.location.hash = '#/';
+  });
+}
+
+function wireAsk() {
+  const input = $('ask-input') as HTMLInputElement;
+  const status = $('ask-status');
+
+  $('ask').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const phrase = input.value.trim();
+    if (!phrase) return;
+
+    status.textContent = content.t('searching');
+    const result = await routePhrase(phrase, topics);
+    document.dispatchEvent(
+      new CustomEvent('compass:route', { detail: { transcript: phrase, result, source: 'typed' } })
+    );
+
+    if (!result.slug) {
+      status.textContent = result.clarify || content.t('no_match');
+      return;
+    }
+    input.value = '';
+    status.textContent = '';
+    window.location.hash = `#/topic/${result.slug}`;
   });
 }
 

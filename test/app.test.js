@@ -23,11 +23,10 @@ beforeAll(async () => {
   const html = read('index.html');
   document.body.innerHTML = html.slice(html.indexOf('<body>') + 6, html.indexOf('<script'));
   window.scrollTo = () => {};
-  globalThis.fetch = async (path) => ({
-    ok: true,
-    status: 200,
-    json: async () => JSON.parse(read('public/' + path)),
-  });
+  globalThis.fetch = async (path) =>
+    path.startsWith('api/')
+      ? { ok: false, status: 503 }
+      : { ok: true, status: 200, json: async () => JSON.parse(read('public/' + path)) };
 
   await import('../src/app.ts');
   await vi.waitFor(() => expect(visible('screen-home')).toBe(true));
@@ -97,4 +96,26 @@ test('a topic without an authority has no destination card', async () => {
 test('an unknown topic falls back to home', async () => {
   await goto('#/topic/gibt-es-nicht');
   await vi.waitFor(() => expect(visible('screen-home')).toBe(true));
+});
+
+function type(phrase) {
+  document.getElementById('ask-input').value = phrase;
+  document.getElementById('ask').dispatchEvent(new Event('submit', { cancelable: true }));
+}
+
+test('a typed phrase opens its topic and clears the field', async () => {
+  await goto('#/');
+  type('دکتر');
+  await vi.waitFor(() => expect(window.location.hash).toBe('#/topic/gesundheit'));
+  expect(document.getElementById('ask-input').value).toBe('');
+  expect(document.getElementById('ask-status').textContent).toBe('');
+});
+
+test('a typed phrase that matches nothing says so and stays on home', async () => {
+  await goto('#/');
+  type('سلام');
+  const status = document.getElementById('ask-status');
+  await vi.waitFor(() => expect(status.textContent).toContain('متوجه نشدم'));
+  expect(window.location.hash).toBe('#/');
+  expect(document.getElementById('ask-input').value).toBe('سلام');
 });
