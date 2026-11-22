@@ -74,7 +74,20 @@ body {
 
 /* ---- Home ---- */
 .home-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
   padding: 0.5rem 0 1.25rem;
+}
+.beta {
+  margin: 0.35rem 0 0;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
 }
 .kicker {
   margin: 0;

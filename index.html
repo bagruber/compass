@@ -8,6 +8,7 @@
     <meta name="robots" content="noindex, nofollow" />
     <title>راهنمای آلمان — Wegweiser</title>
     <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="/icons/icon-192.png" />
     <link rel="stylesheet" href="css/styles.css" />
   </head>
   <body>
@@ -21,8 +22,13 @@
     <!-- HOME -->
     <main id="screen-home" class="screen" hidden>
       <header class="home-header">
-        <p id="kicker" class="kicker"></p>
-        <p id="guide-label" class="guide-label"></p>
+        <div>
+          <p id="kicker" class="kicker"></p>
+          <p id="guide-label" class="guide-label"></p>
+        </div>
+        <!-- For helpers and caseworkers, so in German. Goes when the content
+             has been checked. -->
+        <p class="beta" lang="de" dir="ltr">Beta · Testbetrieb</p>
       </header>
 
       <button id="mic" class="mic" type="button" hidden>

@@ -8,6 +8,9 @@
 
 Options -Indexes
 
+# Ohne das kommt das Manifest als text/plain.
+AddType application/manifest+json .webmanifest
+
 # Die Datendateien holt der Service Worker bei jedem Besuch im Hintergrund neu.
 # Mit einem Browser-Cache davor käme eine korrigierte Telefonnummer trotzdem
 # erst Tage später an.
