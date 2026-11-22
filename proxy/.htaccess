@@ -1,0 +1,4 @@
+# Aus diesem Ordner wird nur route.php ausgeliefert. vendor/ liegt daneben,
+# weil PHP es dort braucht, nicht weil es jemand abrufen soll.
+RewriteEngine On
+RewriteRule !^route\.php$ - [F]

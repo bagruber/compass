@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { defineConfig, type Plugin } from 'vite';
+import type { Plugin } from 'vite';
+import { defineConfig } from 'vitest/config';
 
 // The Service Worker has to know every file of the shell by name, and Vite
 // names the built files by content hash. So the list is written after the
@@ -45,4 +46,6 @@ export default defineConfig({
   // Relative, so the same build runs at a domain root and in a subfolder.
   base: './',
   plugins: [serviceWorker()],
+  // Not the test files that PHP packages bring along in proxy/vendor.
+  test: { include: ['test/**/*.test.js'] },
 });

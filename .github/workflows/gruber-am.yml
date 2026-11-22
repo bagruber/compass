@@ -38,11 +38,19 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
       - run: pnpm build
+
+      # Der Routing-Proxy samt seinen PHP-Paketen. Erst nach dem Build, damit
+      # nichts davon in der Dateiliste des Service Workers landet.
+      - name: Proxy nach dist/api legen
+        run: |
+          composer install --no-dev --no-interaction --optimize-autoloader --working-dir=proxy
+          mkdir dist/api
+          cp -r proxy/route.php proxy/.htaccess proxy/vendor dist/api/
       - uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
-          # .htaccess trägt den noindex-Header.
+          # Die .htaccess-Dateien tragen den noindex-Header und sperren vendor/.
           include-hidden-files: true
           retention-days: 3
 

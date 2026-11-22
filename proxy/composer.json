@@ -1,0 +1,14 @@
+{
+    "name": "bagruber/compass-proxy",
+    "type": "project",
+    "require": {
+        "php": ">=8.2",
+        "anthropic-ai/sdk": "^1.12",
+        "guzzlehttp/guzzle": "^8.5"
+    },
+    "config": {
+        "platform": {
+            "php": "8.2.0"
+        }
+    }
+}

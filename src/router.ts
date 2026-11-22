@@ -6,7 +6,8 @@
 // proxy : POST to a serverless endpoint holding the API key. Same shape, so
 //         switching is a config change in data/structure.json, not a code edit.
 //
-// Any proxy failure falls back to mock. Routing must never dead-end.
+// Any proxy failure — offline, slow, over its limit, not configured — falls
+// back to mock. Routing must never dead-end.
 
 import { meta, t, type Topic } from './content.ts';
 
@@ -25,6 +26,7 @@ export interface RouteResult {
 }
 
 const PROXY_ENDPOINT = 'api/route.php';
+const PROXY_TIMEOUT = 6000; // then the offline matcher answers instead
 
 // Combining marks: Latin diacritics, Arabic harakat, superscript alef.
 // Written out rather than \p{M} so the module still parses on the old Chrome
@@ -96,23 +98,38 @@ function routeMock(transcript: string, topics: Topic[]): RouteResult {
 }
 
 async function routeProxy(transcript: string, topics: Topic[]): Promise<RouteResult> {
+  // Aborted by hand: AbortSignal.timeout is missing on the old Chrome builds
+  // this audience's phones run.
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), PROXY_TIMEOUT);
+
   try {
     const res = await fetch(PROXY_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        transcript,
-        lang: meta().code,
-        slugs: topics.map((topic) => ({ id: topic.id, name: topic.name, de: topic.de })),
-      }),
+      // Only what was said and in which language. The proxy reads the topics
+      // from the same data files the app does.
+      body: JSON.stringify({ transcript, lang: meta().code }),
+      signal: abort.signal,
     });
     if (!res.ok) throw new Error(`proxy ${res.status}`);
+
     const result = await res.json();
-    // The proxy decides server-side, so there is no local scoring to show.
-    return { ...result, trace: { mode: 'proxy', reason: 'decided by the model', scores: [] } };
+    if (result.slug && !topics.some((topic) => topic.id === result.slug)) {
+      throw new Error(`proxy named an unknown topic: ${result.slug}`);
+    }
+    return {
+      slug: result.slug ?? null,
+      confidence: result.confidence ?? 0,
+      clarify: result.clarify ?? null,
+      // The proxy decides server-side, so there is no local scoring to show.
+      trace: { mode: 'proxy', reason: 'decided by the model', scores: [] },
+    };
   } catch (err) {
     console.warn('[router] proxy failed, falling back to mock:', err);
     return routeMock(transcript, topics);
+  } finally {
+    clearTimeout(timer);
   }
 }
 

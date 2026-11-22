@@ -6,8 +6,8 @@
 // measure for any better router: a group-two sentence that starts routing
 // correctly moves up into group one.
 
-import { beforeAll, describe, expect, test } from 'vitest';
-import { loadContent } from './setup.js';
+import { afterEach, beforeAll, describe, expect, test, vi } from 'vitest';
+import { loadContent, staticFiles } from './setup.js';
 import { route } from '../src/router.ts';
 
 let topics;
@@ -77,5 +77,65 @@ describe('where keywords run out', () => {
   test('a health-insurance card also counts as a question about work', async () => {
     const result = await route('کارت بیمه ندارم', topics);
     expect({ got: result.slug, wanted: 'gesundheit' }).toMatchSnapshot();
+  });
+});
+
+// structure.json sets router_mode to "proxy", so every test above already ran
+// through the fallback: the proxy answered 503 and the keyword matcher took
+// over. These look at the proxy path itself.
+describe('with the proxy', () => {
+  afterEach(() => {
+    globalThis.fetch = staticFiles;
+    vi.useRealTimers();
+  });
+
+  const proxy = (answer) => {
+    const calls = [];
+    globalThis.fetch = async (path, init) => {
+      calls.push({ path, body: JSON.parse(init.body) });
+      return typeof answer === 'function' ? answer(init) : answer;
+    };
+    return calls;
+  };
+  const ok = (body) => ({ ok: true, status: 200, json: async () => body });
+
+  test('its answer is used, even where no keyword would match', async () => {
+    const calls = proxy(ok({ slug: 'gesundheit', confidence: 0.9, clarify: null }));
+    const result = await route('دندانم درد می‌کند', topics);
+
+    expect(result.slug).toBe('gesundheit');
+    expect(result.trace.mode).toBe('proxy');
+    expect(calls).toEqual([{ path: 'api/route.php', body: { transcript: 'دندانم درد می‌کند', lang: 'fa' } }]);
+  });
+
+  test('its clarifying question is passed on', async () => {
+    proxy(ok({ slug: null, confidence: 0, clarify: 'کار یا پزشک؟' }));
+    const result = await route('کارت بیمه ندارم', topics);
+    expect(result).toMatchObject({ slug: null, clarify: 'کار یا پزشک؟' });
+  });
+
+  test.each([
+    ['an error status', { ok: false, status: 429 }],
+    ['a topic the app does not have', ok({ slug: 'wohngeld', confidence: 0.9, clarify: null })],
+  ])('%s falls back to the keyword matcher', async (_name, answer) => {
+    proxy(answer);
+    const result = await route('دکتر', topics);
+    expect(result.slug).toBe('gesundheit');
+    expect(result.trace.mode).toBe('mock');
+  });
+
+  test('no answer within six seconds falls back as well', async () => {
+    vi.useFakeTimers();
+    proxy(
+      (init) =>
+        new Promise((_resolve, reject) => {
+          init.signal.addEventListener('abort', () => reject(new Error('aborted')));
+        })
+    );
+    const pending = route('دکتر', topics);
+    await vi.advanceTimersByTimeAsync(6000);
+    const result = await pending;
+    expect(result.slug).toBe('gesundheit');
+    expect(result.trace.mode).toBe('mock');
   });
 });

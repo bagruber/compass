@@ -1,9 +1,8 @@
 # Local tooling state, not part of the app
 .impeccable/
 
-# PHP proxy dependencies — installed on the host, never committed
+# PHP proxy dependencies — installed by the deploy workflow, never committed
 proxy/vendor/
-proxy/composer.lock
 
 node_modules/
 dist/

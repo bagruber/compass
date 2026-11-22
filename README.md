@@ -14,10 +14,14 @@ Pilot: county of **Freising**, language **Farsi/Dari**.
 - TypeScript, no framework. Vite builds it, Vitest tests it.
 - Service Worker: shell cache-first, data stale-while-revalidate, audio cached on play.
   The build writes its file list and cache name (`vite.config.ts`).
-- Web Speech API for speech-to-text, language taken from the active locale
-- Voice → topic routing behind one interface, both returning `{ slug, confidence, clarify }`:
-  - **mock** (default): offline keyword matcher, no secrets
-  - **proxy**: `proxy/route.php` holding the API key
+- Web Speech API for speech-to-text, language taken from the active locale.
+  A text field takes the same question typed.
+- Spoken or typed phrase → topic, behind one interface with two backends, both
+  returning `{ slug, confidence, clarify }`:
+  - **proxy**: `proxy/route.php` asks a language model, so a sentence that
+    describes a situation finds its topic without containing a keyword
+  - **mock**: offline keyword matcher, no secrets. Takes over whenever the
+    proxy is unreachable, slow, over its limit or not configured.
 
 ## Content model
 
@@ -92,10 +96,22 @@ search engines.
 GitHub Pages from the branch root no longer works — the repo holds sources, not
 the built site.
 
-**The routing proxy is not deployed yet.** `proxy/route.php` has to end up at
-`<webroot>/api/route.php` with its Composer packages and an API key the web
-server cannot hand out; until then `router_mode` stays `"mock"`. If the proxy
-is unreachable, routing falls back to the offline matcher on its own.
+**The routing proxy** is deployed by the same workflow: `composer install` in
+`proxy/`, then `route.php` and `vendor/` go to `<webroot>/api/`. The API key
+is not in the repo and not under the webroot. It lives in a file one level
+above `public_html`, which has to be created once by hand:
+
+```php
+<?php return ['anthropic_api_key' => 'sk-ant-...'];
+```
+
+saved as `/home/<user>/domains/gruber.am/compass-config.php`. Without that
+file the proxy answers 503 and the app routes by keyword. The proxy counts
+requests in `compass-rate.json` next to it: 20 per address in ten minutes,
+1000 a day in total.
+
+What was said is sent to the Anthropic API to be routed and is stored nowhere
+on this server.
 
 ## ⚠️ Authority data is unverified
 
@@ -119,6 +135,6 @@ src/debug.ts            routing inspector, loaded only behind ?debug
 src/sw.js               Service Worker template, filled in by the build
 public/                 served as is: data, audio, icons, manifest, .htaccess
 test/                   Vitest: content merge, routing, the app in jsdom
-proxy/route.php         API-key proxy (Hostinger)
+proxy/                  route.php and its Composer packages; deployed to api/
 tools/                  asset generators (Python, run once)
 ```

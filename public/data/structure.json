@@ -2,7 +2,7 @@
   "_note": "Language-invariant spine. German text lives here because German is German regardless of who is reading — and because showing the German term is how a user points at what they need at the counter. Per-language text lives in data/lang/<code>.json. Audio path is by convention: audio/<lang>/<topic>/step-<n>.mp3",
 
   "county": "Freising",
-  "router_mode": "mock",
+  "router_mode": "proxy",
 
   "languages": [
     { "code": "fa", "name": "فارسی / دری", "dir": "rtl", "stt": "fa-IR" }
