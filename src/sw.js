@@ -9,8 +9,12 @@
 //   audio (mp3)          cache-first, cached on play. Never precached: this
 //                        audience is on prepaid data and downloading every
 //                        language up front would spend their money for them.
+//                        In a cache of its own, named after the recordings,
+//                        so a release that changes none of them leaves what
+//                        was already heard on the phone.
 
 const CACHE = '__CACHE__';
+const AUDIO = '__AUDIO__';
 
 const SHELL = '__SHELL__';
 
@@ -27,7 +31,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
+      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE && key !== AUDIO).map((key) => caches.delete(key))))
       .then(() => self.clients.claim())
   );
 });
@@ -59,8 +63,9 @@ async function cacheFirst(request) {
   if (cached) return cached;
 
   const response = await fetch(request);
-  if (response.ok && new URL(request.url).origin === self.location.origin) {
-    const cache = await caches.open(CACHE);
+  const url = new URL(request.url);
+  if (response.ok && url.origin === self.location.origin) {
+    const cache = await caches.open(url.pathname.includes('/audio/') ? AUDIO : CACHE);
     cache.put(request, response.clone());
   }
   return response;

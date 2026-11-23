@@ -17,25 +17,30 @@ function serviceWorker(): Plugin {
     apply: 'build',
     writeBundle(options) {
       const dist = options.dir!;
-      const shell = readdirSync(dist, { recursive: true, withFileTypes: true })
+      const files = readdirSync(dist, { recursive: true, withFileTypes: true })
         .filter((entry) => entry.isFile())
         .map((entry) => join(entry.parentPath, entry.name).slice(dist.length + 1).replaceAll('\\', '/'))
+        .sort();
+      const shell = files
         // The routing inspector is only fetched behind ?debug; precaching it
         // would download it for everyone. The server refuses to hand out
         // .htaccess, and one refused file fails the whole install.
-        .filter((file) => !file.startsWith('audio/') && !file.includes('/debug-') && !file.startsWith('.'))
-        .sort();
+        .filter((file) => !file.startsWith('audio/') && !file.includes('/debug-') && !file.startsWith('.'));
 
       // Named after the contents, not the file names: index.html and the
       // icons keep their names when they change, and a worker whose text
       // stays the same is never installed again.
-      const hash = createHash('sha256');
-      for (const file of shell) hash.update(file).update(readFileSync(join(dist, file)));
+      const named = (prefix: string, list: string[]) => {
+        const hash = createHash('sha256');
+        for (const file of list) hash.update(file).update(readFileSync(join(dist, file)));
+        return `${prefix}-${hash.digest('hex').slice(0, 8)}`;
+      };
 
       writeFileSync(
         join(dist, 'sw.js'),
         readFileSync('src/sw.js', 'utf8')
-          .replace('__CACHE__', `compass-${hash.digest('hex').slice(0, 8)}`)
+          .replace('__CACHE__', named('compass', shell))
+          .replace('__AUDIO__', named('compass-audio', files.filter((file) => file.startsWith('audio/'))))
           .replace("'__SHELL__'", JSON.stringify(['./', ...shell.map((file) => `./${file}`)]))
       );
     },
