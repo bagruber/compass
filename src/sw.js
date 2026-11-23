@@ -6,7 +6,7 @@
 //   data  (json)         stale-while-revalidate. Serves instantly offline, but
 //                        a corrected phone number reaches users on the next
 //                        visit instead of waiting for a version bump.
-//   audio (mp3)          cache-first, cached on play. Never precached: this
+//   audio (mp3)          kept on first play. Never precached: this
 //                        audience is on prepaid data and downloading every
 //                        language up front would spend their money for them.
 //                        In a cache of its own, named after the recordings,
@@ -63,12 +63,38 @@ async function cacheFirst(request) {
   if (cached) return cached;
 
   const response = await fetch(request);
-  const url = new URL(request.url);
-  if (response.ok && url.origin === self.location.origin) {
-    const cache = await caches.open(url.pathname.includes('/audio/') ? AUDIO : CACHE);
+  if (response.ok && new URL(request.url).origin === self.location.origin) {
+    const cache = await caches.open(CACHE);
     cache.put(request, response.clone());
   }
   return response;
+}
+
+// A player asks for audio in byte ranges, and a partial answer cannot be put
+// in a cache. So the whole file is fetched and kept once, and each range is
+// cut from that copy.
+async function audio(request) {
+  const cache = await caches.open(AUDIO);
+  let whole = await cache.match(request.url);
+  if (!whole) {
+    whole = await fetch(request.url);
+    if (!whole.ok) return whole;
+    cache.put(request.url, whole.clone());
+  }
+
+  const range = /^bytes=(\d+)-(\d*)$/.exec(request.headers.get('range') || '');
+  if (!range) return whole;
+
+  const bytes = await whole.arrayBuffer();
+  const start = Number(range[1]);
+  const end = range[2] ? Number(range[2]) : bytes.byteLength - 1;
+  return new Response(bytes.slice(start, end + 1), {
+    status: 206,
+    headers: {
+      'Content-Type': whole.headers.get('Content-Type') || 'audio/mpeg',
+      'Content-Range': `bytes ${start}-${end}/${bytes.byteLength}`,
+    },
+  });
 }
 
 self.addEventListener('fetch', (event) => {
@@ -78,5 +104,6 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  event.respondWith(isData(url) ? staleWhileRevalidate(request) : cacheFirst(request));
+  if (url.pathname.includes('/audio/')) event.respondWith(audio(request));
+  else event.respondWith(isData(url) ? staleWhileRevalidate(request) : cacheFirst(request));
 });
