@@ -12,12 +12,14 @@ Pilot: county of **Freising**, language **Farsi/Dari**.
 ## Stack
 
 - TypeScript, no framework. Vite builds it, Vitest tests it.
-- Service Worker: shell cache-first, data stale-while-revalidate, audio cached on play.
-  The build writes its file list and cache name (`vite.config.ts`).
+- Service Worker: shell cache-first, data stale-while-revalidate, audio cached on play
+  in a cache of its own that outlives releases. The build writes the file list and
+  both cache names (`vite.config.ts`).
 - Web Speech API for speech-to-text, language taken from the active locale.
   A text field takes the same question typed.
 - Spoken or typed phrase → topic, behind one interface with two backends, both
-  returning `{ slug, confidence, clarify }`:
+  returning `{ slug, confidence, options }`. Neither writes text: a phrase that
+  could mean two topics comes back as those two, and the app marks both tiles:
   - **proxy**: `proxy/route.php` asks a language model, so a sentence that
     describes a situation finds its topic without containing a keyword
   - **mock**: offline keyword matcher, no secrets. Takes over whenever the

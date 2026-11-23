@@ -23,6 +23,7 @@ beforeAll(async () => {
   const html = read('index.html');
   document.body.innerHTML = html.slice(html.indexOf('<body>') + 6, html.indexOf('<script'));
   window.scrollTo = () => {};
+  Element.prototype.scrollIntoView = () => {};
   globalThis.fetch = async (path) =>
     path.startsWith('api/')
       ? { ok: false, status: 503 }
@@ -118,4 +119,20 @@ test('a typed phrase that matches nothing says so and stays on home', async () =
   await vi.waitFor(() => expect(status.textContent).toContain('متوجه نشدم'));
   expect(window.location.hash).toBe('#/');
   expect(document.getElementById('ask-input').value).toBe('سلام');
+});
+
+test('a typed phrase that could mean two topics marks both tiles and asks', async () => {
+  await goto('#/');
+  type('کار و مدرسه');
+  const marked = () => [...document.querySelectorAll('.tile.is-candidate')].map((tile) => tile.getAttribute('href'));
+
+  await vi.waitFor(() => expect(marked()).toEqual(['#/topic/jobcenter', '#/topic/kita-schule']));
+  expect(document.getElementById('grid').classList.contains('has-candidates')).toBe(true);
+  expect(document.getElementById('ask-status').textContent).toContain('مهدکودک و مدرسه');
+  expect(window.location.hash).toBe('#/');
+
+  // Choosing one takes the marking away again.
+  await goto('#/topic/kita-schule');
+  await vi.waitFor(() => expect(marked()).toEqual([]));
+  expect(document.getElementById('ask-status').textContent).toBe('');
 });

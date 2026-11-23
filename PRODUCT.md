@@ -85,7 +85,7 @@ spoken sequence of steps plus a tap-to-navigate and tap-to-call destination.
   icon grid is the offline-reliable path and must always work alone.
 - Voice → topic routing sits behind one interface with two backends: an offline
   client-side keyword matcher (default) and an optional server-side LLM router.
-  Both return `{ slug, confidence, clarify }`. Falling back to the offline
+  Both return `{ slug, confidence, options }` and never text of their own. Falling back to the offline
   matcher on any failure is required behaviour, not an optimization.
 - **Deployment is Hostinger only, decided 21.11.2026** (replaces the earlier
   split with GitHub Pages for testing). The test deployment runs at

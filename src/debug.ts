@@ -100,7 +100,7 @@ function render(transcript: string, result: RouteResult, source: string) {
     go.href = `#/topic/${result.slug}`;
     verdict.append(go);
   } else {
-    verdict.textContent = `→ no match — ${trace.reason || ''} · asks: "${result.clarify || ''}"`;
+    verdict.textContent = `→ no match — ${trace.reason || ''} · offers: ${result.options.join(', ') || 'nothing'}`;
   }
   out.append(verdict);
 }

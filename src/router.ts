@@ -1,10 +1,14 @@
 // Voice -> topic routing. One interface, two backends.
 //
-//   route(transcript, topics) -> { slug, confidence, clarify }
+//   route(transcript, topics) -> { slug, confidence, options }
 //
 // mock  : client-side keyword matcher. No secrets, works offline. Default.
 // proxy : POST to a serverless endpoint holding the API key. Same shape, so
 //         switching is a config change in data/structure.json, not a code edit.
+//
+// Neither backend writes text. When a phrase could mean two topics, the
+// result names both and the app asks with its own fixed words — so every
+// sentence the user meets has been written and checked beforehand.
 //
 // Any proxy failure — offline, slow, over its limit, not configured — falls
 // back to mock. Routing must never dead-end.
@@ -16,7 +20,7 @@ type Equivalents = [string, string][];
 export interface RouteResult {
   slug: string | null;
   confidence: number;
-  clarify: string | null;
+  options: string[]; // two topic ids to choose between, or none
   trace: {
     mode: 'mock' | 'proxy';
     reason: string;
@@ -75,16 +79,15 @@ function routeMock(transcript: string, topics: Topic[]): RouteResult {
   };
 
   if (!best || best.score === 0) {
-    return { slug: null, confidence: 0, clarify: t('no_match'), trace: { ...trace, reason: 'no keyword matched' } };
+    return { slug: null, confidence: 0, options: [], trace: { ...trace, reason: 'no keyword matched' } };
   }
 
   // Top two tied on a positive score -> ask which one rather than guessing.
   if (second && second.score === best.score) {
-    const options = [best.topic.name, second.topic.name].join(t('clarify_or'));
     return {
       slug: null,
       confidence: 0.5,
-      clarify: t('clarify_between', { options }),
+      options: [best.topic.id, second.topic.id],
       trace: { ...trace, reason: `tie: ${best.topic.id} vs ${second.topic.id}` },
     };
   }
@@ -92,7 +95,7 @@ function routeMock(transcript: string, topics: Topic[]): RouteResult {
   return {
     slug: best.topic.id,
     confidence: Math.min(1, 0.5 + best.score * 0.25),
-    clarify: null,
+    options: [],
     trace: { ...trace, reason: `${best.topic.id} led with ${best.score}` },
   };
 }
@@ -115,13 +118,14 @@ async function routeProxy(transcript: string, topics: Topic[]): Promise<RouteRes
     if (!res.ok) throw new Error(`proxy ${res.status}`);
 
     const result = await res.json();
-    if (result.slug && !topics.some((topic) => topic.id === result.slug)) {
-      throw new Error(`proxy named an unknown topic: ${result.slug}`);
+    const options: string[] = result.options ?? [];
+    for (const id of [result.slug, ...options]) {
+      if (id && !topics.some((topic) => topic.id === id)) throw new Error(`proxy named an unknown topic: ${id}`);
     }
     return {
       slug: result.slug ?? null,
       confidence: result.confidence ?? 0,
-      clarify: result.clarify ?? null,
+      options,
       // The proxy decides server-side, so there is no local scoring to show.
       trace: { mode: 'proxy', reason: 'decided by the model', scores: [] },
     };
@@ -131,6 +135,12 @@ async function routeProxy(transcript: string, topics: Topic[]): Promise<RouteRes
   } finally {
     clearTimeout(timer);
   }
+}
+
+// "Do you mean A or B?", put together from the language file.
+export function question(options: string[], topics: Topic[]) {
+  const names = options.map((id) => topics.find((topic) => topic.id === id)!.name);
+  return t('clarify_between', { options: names.join(t('clarify_or')) });
 }
 
 export function route(transcript: string, topics: Topic[]): Promise<RouteResult> {

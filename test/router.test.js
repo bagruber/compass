@@ -8,7 +8,7 @@
 
 import { afterEach, beforeAll, describe, expect, test, vi } from 'vitest';
 import { loadContent, staticFiles } from './setup.js';
-import { route } from '../src/router.ts';
+import { question, route } from '../src/router.ts';
 
 let topics;
 
@@ -45,18 +45,22 @@ describe('routes by keyword', () => {
 });
 
 describe('asks instead of guessing', () => {
-  test('no keyword: no slug, a spoken prompt to try again', async () => {
+  test('no keyword: no slug and nothing to choose from', async () => {
     const result = await route('سلام', topics);
     expect(result.slug).toBeNull();
     expect(result.confidence).toBe(0);
-    expect(result.clarify).toBeTruthy();
+    expect(result.options).toEqual([]);
   });
 
   test('a tie names both candidates', async () => {
     const result = await route('کار و مدرسه', topics);
     expect(result.slug).toBeNull();
-    expect(result.clarify).toContain('کار و کمک‌هزینه');
-    expect(result.clarify).toContain('مهدکودک و مدرسه');
+    expect(result.options).toEqual(['jobcenter', 'kita-schule']);
+  });
+
+  test('the question comes from the language file, with both names in it', () => {
+    const asked = question(['jobcenter', 'kita-schule'], topics);
+    expect(asked).toBe('منظورتان کار و کمک‌هزینه یا مهدکودک و مدرسه است؟');
   });
 });
 
@@ -100,7 +104,7 @@ describe('with the proxy', () => {
   const ok = (body) => ({ ok: true, status: 200, json: async () => body });
 
   test('its answer is used, even where no keyword would match', async () => {
-    const calls = proxy(ok({ slug: 'gesundheit', confidence: 0.9, clarify: null }));
+    const calls = proxy(ok({ slug: 'gesundheit', confidence: 0.9, options: [] }));
     const result = await route('دندانم درد می‌کند', topics);
 
     expect(result.slug).toBe('gesundheit');
@@ -108,15 +112,16 @@ describe('with the proxy', () => {
     expect(calls).toEqual([{ path: 'api/route.php', body: { transcript: 'دندانم درد می‌کند', lang: 'fa' } }]);
   });
 
-  test('its clarifying question is passed on', async () => {
-    proxy(ok({ slug: null, confidence: 0, clarify: 'کار یا پزشک؟' }));
+  test('its two candidates are passed on', async () => {
+    proxy(ok({ slug: null, confidence: 0.5, options: ['gesundheit', 'jobcenter'] }));
     const result = await route('کارت بیمه ندارم', topics);
-    expect(result).toMatchObject({ slug: null, clarify: 'کار یا پزشک؟' });
+    expect(result).toMatchObject({ slug: null, options: ['gesundheit', 'jobcenter'] });
   });
 
   test.each([
     ['an error status', { ok: false, status: 429 }],
-    ['a topic the app does not have', ok({ slug: 'wohngeld', confidence: 0.9, clarify: null })],
+    ['a topic the app does not have', ok({ slug: 'wohngeld', confidence: 0.9, options: [] })],
+    ['a candidate the app does not have', ok({ slug: null, confidence: 0.5, options: ['gesundheit', 'wohngeld'] })],
   ])('%s falls back to the keyword matcher', async (_name, answer) => {
     proxy(answer);
     const result = await route('دکتر', topics);

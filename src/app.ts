@@ -2,7 +2,7 @@ import * as content from './content.ts';
 import type { Language, Topic } from './content.ts';
 import { $ } from './dom.ts';
 import { renderTopic, stopAudio } from './player.ts';
-import { route as routePhrase } from './router.ts';
+import { question, route as routePhrase } from './router.ts';
 import { initVoice, openVoice, isVoiceSupported } from './voice.ts';
 
 const screens = {
@@ -137,12 +137,16 @@ function wireVoice() {
     topics,
     (slug) => {
       window.location.hash = `#/topic/${slug}`;
-    }
+    },
+    offer
   );
 
   const mic = $('mic');
   mic.hidden = !isVoiceSupported();
-  mic.addEventListener('click', openVoice);
+  mic.addEventListener('click', () => {
+    offer([]);
+    openVoice();
+  });
 
   $('back').addEventListener('click', () => {
     window.location.hash = '#/';
@@ -158,20 +162,40 @@ function wireAsk() {
     const phrase = input.value.trim();
     if (!phrase) return;
 
+    offer([]);
     status.textContent = content.t('searching');
     const result = await routePhrase(phrase, topics);
     document.dispatchEvent(
       new CustomEvent('compass:route', { detail: { transcript: phrase, result, source: 'typed' } })
     );
 
+    if (result.options.length) {
+      input.blur(); // closes the keyboard, which would cover the grid
+      offer(result.options);
+      return;
+    }
     if (!result.slug) {
-      status.textContent = result.clarify || content.t('no_match');
+      status.textContent = content.t('no_match');
       return;
     }
     input.value = '';
     status.textContent = '';
     window.location.hash = `#/topic/${result.slug}`;
   });
+}
+
+// The phrase could mean two topics. No new buttons: the two tiles are marked
+// where they always are and the rest steps back, because position is how this
+// audience finds a tile again. An empty list takes the marking away.
+function offer(options: string[]) {
+  const grid = $('grid');
+  grid.classList.toggle('has-candidates', options.length > 0);
+  grid.querySelectorAll('.tile').forEach((tile) => {
+    const id = tile.getAttribute('href')!.replace('#/topic/', '');
+    tile.classList.toggle('is-candidate', options.includes(id));
+  });
+  $('ask-status').textContent = options.length ? question(options, topics) : '';
+  if (options.length) grid.scrollIntoView({ block: 'nearest' });
 }
 
 function show(name: keyof typeof screens) {
@@ -185,6 +209,7 @@ function route() {
   const topic = match && byId[match[1]];
 
   if (topic) {
+    offer([]);
     renderTopic(topic, $('topic-content'));
     show('topic');
     $('back').focus();

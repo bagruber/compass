@@ -1,7 +1,7 @@
 <?php
 // Intent-routing proxy. The static app cannot hold an API key; this endpoint
-// does, and answers with the same { slug, confidence, clarify } the offline
-// keyword matcher returns. If it is unreachable, slow or refuses, the app
+// does, and answers with the same { slug, confidence, options } the offline
+// keyword matcher returns. It names topics and writes no text of its own. If it is unreachable, slow or refuses, the app
 // falls back to that matcher on its own.
 //
 // Deployed by the workflow to <webroot>/api/route.php, next to its vendor/.
@@ -136,9 +136,9 @@ $system = <<<TXT
 You route a spoken or typed phrase to exactly one help category for newcomers in {$structure['county']}, Germany.
 The phrase may be in any language, may describe a situation rather than name an office, and may be a garbled speech-to-text transcript.
 You ONLY pick a slug from the provided list. You never answer the question or invent content.
-If the phrase clearly belongs to one category, return its slug with clarify=null.
-If it is ambiguous or fits none, return slug=null and one short clarifying question
-written in the SAME language as the user's phrase.
+If the phrase clearly belongs to one category, return its slug and options=[].
+If it could equally mean two categories, return slug=null and those two slugs in options.
+If it fits none, return slug=null and options=[].
 TXT;
 
 try {
@@ -157,9 +157,9 @@ try {
                     'type' => 'object',
                     'properties' => [
                         'slug' => ['type' => ['string', 'null']],
-                        'clarify' => ['type' => ['string', 'null']],
+                        'options' => ['type' => 'array', 'items' => ['type' => 'string']],
                     ],
-                    'required' => ['slug', 'clarify'],
+                    'required' => ['slug', 'options'],
                     'additionalProperties' => false,
                 ],
             ],
@@ -186,8 +186,14 @@ if (!in_array($slug, $ids, true)) {
     $slug = null;
 }
 
+// A choice is between exactly two known topics, or there is none.
+$options = array_values(array_unique(array_intersect($parsed['options'] ?? [], $ids)));
+if ($slug || count($options) !== 2) {
+    $options = [];
+}
+
 echo json_encode([
     'slug' => $slug,
-    'confidence' => $slug ? 0.9 : 0,
-    'clarify' => $slug ? null : ($parsed['clarify'] ?? null),
+    'confidence' => $slug ? 0.9 : ($options ? 0.5 : 0),
+    'options' => $options,
 ]);

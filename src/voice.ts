@@ -5,7 +5,7 @@
 // best-effort: every failure lands on a visible retry and leaves the icon grid
 // intact behind it. Voice is never the only door.
 
-import { route } from './router.ts';
+import { question, route } from './router.ts';
 import { meta, t, type Topic } from './content.ts';
 
 // The DOM typings know the recognition events but not the recognizer itself,
@@ -36,6 +36,7 @@ const SR = speech.SpeechRecognition || speech.webkitSpeechRecognition;
 
 let el: VoiceElements;
 let onNavigate: (slug: string) => void;
+let onOffer: (options: string[]) => void;
 let topicList: Topic[] = [];
 let recognition: Recognition | null = null;
 
@@ -43,10 +44,16 @@ export function isVoiceSupported() {
   return Boolean(SR);
 }
 
-export function initVoice(elements: VoiceElements, topics: Topic[], navigateFn: (slug: string) => void) {
+export function initVoice(
+  elements: VoiceElements,
+  topics: Topic[],
+  navigateFn: (slug: string) => void,
+  offerFn: (options: string[]) => void
+) {
   el = elements;
   topicList = topics;
   onNavigate = navigateFn;
+  onOffer = offerFn;
   el.close.addEventListener('click', closeVoice);
   el.retry.addEventListener('click', openVoice);
   el.overlay.addEventListener('keydown', (event) => {
@@ -130,9 +137,18 @@ async function handleTranscript(transcript: string) {
     new CustomEvent('compass:route', { detail: { transcript, result, source: 'voice' } })
   );
 
+  // Two candidates: back to the grid, where both are marked in their usual
+  // place, and the question is spoken.
+  if (result.options.length) {
+    closeVoice();
+    onOffer(result.options);
+    speak(question(result.options, topicList));
+    return;
+  }
+
   if (!result.slug) {
-    setState('error', result.clarify || t('no_match'));
-    speak(result.clarify || t('no_match'));
+    setState('error', t('no_match'));
+    speak(t('no_match'));
     return;
   }
 

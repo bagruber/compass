@@ -196,6 +196,15 @@ body {
   border-color: var(--urgent);
   border-width: 2px;
 }
+/* Two tiles offered as an answer: thick edge and fill on those, and the
+   others step back. The fading carries it where colour does not. */
+.tile.is-candidate {
+  border: 3px solid var(--accent);
+  background: var(--accent-soft);
+}
+.grid.has-candidates .tile:not(.is-candidate) {
+  opacity: 0.35;
+}
 .tile-badge {
   position: absolute;
   top: 0.5rem;
