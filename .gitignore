@@ -6,3 +6,6 @@ proxy/vendor/
 
 node_modules/
 dist/
+
+# Written by tools/build_content.mjs from content/
+public/data/

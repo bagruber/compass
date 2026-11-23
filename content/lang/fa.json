@@ -1,0 +1,47 @@
+{
+  "_note": "UI strings and authority names in this language. The cases themselves are in content/cases/<id>.fa.md. equivalents: character pairs the Unicode NFKD pass does not unify (distinct base letters, not decompositions), used only to make matching forgiving.",
+  "name": "فارسی / دری",
+  "equivalents": [
+    [
+      "ي",
+      "ی"
+    ],
+    [
+      "ك",
+      "ک"
+    ]
+  ],
+  "ui": {
+    "guide": "راهنمای صوتی",
+    "choose_language": "زبان خود را انتخاب کنید",
+    "topics": "موضوع‌ها",
+    "speak": "صحبت کنید",
+    "type": "یا اینجا بنویسید",
+    "search": "جستجو",
+    "back": "بازگشت",
+    "close": "بستن",
+    "play": "پخش صدا",
+    "stop": "توقف",
+    "play_all": "شنیدن کامل",
+    "directions": "مسیر",
+    "call": "تماس",
+    "urgent": "زمان‌حساس",
+    "show_german": "به آلمانی",
+    "listening": "در حال شنیدن… بفرمایید",
+    "searching": "در حال جستجو…",
+    "retry": "دوباره صحبت کنید",
+    "no_match": "متوجه نشدم. لطفاً دوباره بگویید یا روی یکی از دکمه‌ها بزنید.",
+    "no_speech": "چیزی نشنیدم. دوباره تلاش کنید یا از دکمه‌ها استفاده کنید.",
+    "mic_error": "صدا در دسترس نیست. دوباره تلاش کنید یا از دکمه‌ها استفاده کنید.",
+    "unsupported": "صدا روی این دستگاه پشتیبانی نمی‌شود. لطفاً از دکمه‌ها استفاده کنید.",
+    "clarify_between": "منظورتان {options} است؟",
+    "clarify_or": " یا ",
+    "unverified": "شماره تلفن بررسی نشده است"
+  },
+  "authorities": {
+    "buergerbuero": "اداره‌ی شهروندی، شهر فرایزینگ",
+    "auslaenderbehoerde": "اداره‌ی اتباع خارجی",
+    "jobcenter": "یوب‌سنتر، شهرستان فرایزینگ",
+    "vhs": "دانشگاه مردمی"
+  }
+}

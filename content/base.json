@@ -1,0 +1,52 @@
+{
+  "_note": "What is the same in every language: county, languages, authorities, and the order of the cases on the home screen. Each id under topics is a file in content/cases/. tools/build_content.mjs turns all of it into public/data/.",
+  "county": "Freising",
+  "router_mode": "proxy",
+  "languages": [
+    {
+      "code": "fa",
+      "name": "فارسی / دری",
+      "dir": "rtl",
+      "stt": "fa-IR"
+    }
+  ],
+  "_authorities_note": "PLACEHOLDER DATA — office names are real, phone numbers and exact locations are UNVERIFIED and must be confirmed with the Landratsamt Freising before release. maps_query searches by name, so it resolves correctly without hardcoded coordinates.",
+  "authorities": {
+    "buergerbuero": {
+      "de": "Bürgerbüro Stadt Freising",
+      "icon": "🏛️",
+      "maps_query": "Bürgerbüro Stadt Freising Rathaus",
+      "phone": "+4981615444",
+      "verified": false
+    },
+    "auslaenderbehoerde": {
+      "de": "Ausländerbehörde – Landratsamt Freising",
+      "icon": "🛂",
+      "maps_query": "Landratsamt Freising Ausländerbehörde",
+      "phone": "+498161600",
+      "verified": false
+    },
+    "jobcenter": {
+      "de": "Jobcenter Landkreis Freising",
+      "icon": "💶",
+      "maps_query": "Jobcenter Landkreis Freising",
+      "phone": "+498004555500",
+      "verified": false
+    },
+    "vhs": {
+      "de": "Volkshochschule Freising e.V.",
+      "icon": "🏫",
+      "maps_query": "Volkshochschule Freising",
+      "phone": "+4981611670",
+      "verified": false
+    }
+  },
+  "topics": [
+    "wohnsitz-anmelden",
+    "aufenthalt-asyl",
+    "jobcenter",
+    "kita-schule",
+    "gesundheit",
+    "deutschkurs"
+  ]
+}

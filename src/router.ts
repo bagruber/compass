@@ -4,7 +4,7 @@
 //
 // mock  : client-side keyword matcher. No secrets, works offline. Default.
 // proxy : POST to a serverless endpoint holding the API key. Same shape, so
-//         switching is a config change in data/structure.json, not a code edit.
+//         switching is a config change in content/base.json, not a code edit.
 //
 // Neither backend writes text. When a phrase could mean two topics, the
 // result names both and the app asks with its own fixed words — so every

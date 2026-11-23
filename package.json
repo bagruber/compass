@@ -4,10 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "content": "node tools/build_content.mjs",
+    "dev": "pnpm content && vite",
+    "build": "pnpm content && tsc -b && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "pnpm content && vitest run"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
